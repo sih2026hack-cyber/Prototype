@@ -37,7 +37,7 @@ async function api(req,res,url){
       if(route==='/api/topics')return json(res,{topics:data.topics});
       if(route==='/api/entities')return json(res,{entities:data.entities});
       if(route==='/api/audience')return json(res,{segments:Object.entries(data.summary.languages).map(([name,count])=>({name,count})),report:data.audienceReport});
-      if(route==='/api/posts')return json(res,{posts:posts.filter(p=>p.content_kind!=='video').map(({embedding,nlp_row,author_ref,...p})=>({...p,entities:civicEntities(p)}))});
+      if(route==='/api/posts')return json(res,{posts:posts.filter(p=>p.content_kind!=='video').map(({embedding,nlp_row,author_ref,estimate,...p})=>({...p,entities:civicEntities(p)}))});
       if(route==='/api/videos')return json(res,{videos:data.videos});
       if(route==='/api/pipeline')return json(res,{...data.coverage,total:posts.length,topic_count:data.topics.length,stored:run.storage?.verified_rows||0,metadata_stored:run.storage?.metadata_verified||0,running:service.status().busy,state:run.status});
     }
@@ -50,10 +50,11 @@ async function api(req,res,url){
     if(route==='/api/discovery/run')return json(res,service.start({mode:'discovery'}),202);
     if(route==='/api/discovery/settings')return json(res,service.discoveryEnabled(input.enabled));
     if(route==='/api/storage/sync')return json(res,await service.sync(input.run));
+    if(route==='/api/segments/refresh')return json(res,await service.refreshSegments(input.run));
     if(route==='/api/audience/import')return json(res,await service.importAudience(input));
     if(route==='/api/chat'){
       const {posts,run,data}=service.view({run:input.run,from:input.from,to:input.to,group:input.group||'combined'});
-      const context={run:{id:run.id,label:run.label,collection:run.completed_at},filters:data.filters,topics:data.topics,emotions:data.emotions,audience:data.audienceReport,network:{leaders:data.network.leaders,limits:data.network.limitations},growth:data.growth,selection:run.selection||[],limitations:data.limitations};
+      const context={run:{id:run.id,label:run.label,collection:run.completed_at},filters:data.filters,topics:data.topics,emotions:data.emotions,audience:data.audienceReport,audienceSegments:data.audienceSegments,audienceEstimates:data.audienceEstimates,participation:data.participation,network:{leaders:data.network.leaders,limits:data.network.limitations},growth:data.growth,selection:run.selection||[],limitations:data.limitations};
       return json(res,await chat(textInput(input.question),input.history,posts,run,context));
     }
     if(route==='/api/plugin/preview')return json(res,inspectDraft(textInput(input.text,2000)));

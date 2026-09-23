@@ -73,11 +73,21 @@ part=data.get('participation')
 if part:
     add(f"Participation: {part['commenters']} unique commenters, {part['repeat']} commented more than once; {part['top_level']} top-level comments and {part['replies']} replies." + (f" {part['abusive']} comments contained abusive language (masked in this report)." if part.get('abusive') else ''))
     heading('Commenting time of day (IST)');bars(part['time_of_day_ist'].items())
+seg=data.get('audienceSegments')
+if seg and seg.get('estimated'):
+    heading('Audience segments (self-described)')
+    bars([(f"{g['label']} (conf {g['confidence']})",g['count']) for g in seg['segments']])
+    add(f"{seg['classified']} of {seg['estimated']} comments described themselves; {seg['unstated']} did not. {seg['note']}",'SmallArgus')
 report=data.get('audienceReport')
 if report:
     add(f"Imported report: {report.get('source')} | Population: {report.get('population')} | Period: {report.get('period')}")
     add('This imported population is separate from the commenter sample. Categories under ten known respondents are suppressed.','SmallArgus')
     for dimension,rows in report.get('dimensions',{}).items():heading(dimension);bars([(r['label'],r.get('percent')) for r in rows])
+elif (data.get('audienceEstimates') or {}).get('estimated'):
+    est=data['audienceEstimates']
+    add(f"Age, gender and country below are an AI estimate (low confidence, average {est.get('confidence')}) from {est['estimated']} comments. {est['note']}")
+    for dim,title in [('age','Age (AI estimate)'),('gender','Gender (AI estimate)'),('region','Country (AI estimate)')]:
+        heading(title);bars([(r['label'],r['count']) for r in est['dimensions'][dim]['rows']])
 else:add('Age, gender and audience geography: unavailable. Import authorized aggregate channel analytics or a voluntary survey; no demographic predictions are fabricated.')
 heading('3 / Topics and observed discussion')
 bars([(t['topic'],t['posts']) for t in data['topics']])
