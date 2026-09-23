@@ -43,15 +43,79 @@ def fallback_entities(text):
             entities.append(Entity(text=match.group(), label=item['label'], start=match.start(), end=match.end(), source='gazetteer'))
     return entities
 
+class TransformersEmbedder:
+    """Same model and pooling as sentence-transformers (mean pooling + L2 norm), using transformers only.
+    Used when sentence-transformers cannot import (e.g. Windows Application Control blocks scipy/sklearn DLLs)."""
+    def __init__(self, model_path, cache_dir, local_only):
+        from transformers import AutoModel, AutoTokenizer
+        self.tokenizer = AutoTokenizer.from_pretrained(model_path, cache_dir=cache_dir, local_files_only=local_only)
+        self.model = AutoModel.from_pretrained(model_path, cache_dir=cache_dir, local_files_only=local_only).eval()
+    def encode(self, texts, normalize_embeddings=True, show_progress_bar=False):
+        import numpy as np
+        import torch
+        out = []
+        with torch.no_grad():
+            for i in range(0, len(texts), 32):
+                batch = self.tokenizer(list(texts[i:i+32]), padding=True, truncation=True, max_length=128, return_tensors='pt')
+                hidden = self.model(**batch).last_hidden_state
+                mask = batch['attention_mask'].unsqueeze(-1).float()
+                vectors = (hidden * mask).sum(1) / mask.sum(1).clamp(min=1e-9)
+                if normalize_embeddings:
+                    vectors = torch.nn.functional.normalize(vectors, p=2, dim=1)
+                out.append(vectors.numpy())
+        return np.concatenate(out) if out else np.zeros((0, 384))
+
 def embedding_model():
     global embedder
     if embedder is None:
-        from sentence_transformers import SentenceTransformer
         model_cache = os.environ.get('ARGUS_MODEL_CACHE', str(Path(os.environ['ARGUS_RUNTIME']) / 'models'))
         local_model = Path(__file__).resolve().parents[3] / 'work' / 'multilingual-model'
         model_path = os.environ.get('ARGUS_EMBEDDING_PATH') or (str(local_model) if (local_model / 'model.safetensors').exists() else embedding_name)
-        embedder = SentenceTransformer(model_path, cache_folder=model_cache, local_files_only=Path(model_path).is_dir())
+        local_only = Path(model_path).is_dir()
+        try:
+            from sentence_transformers import SentenceTransformer
+            embedder = SentenceTransformer(model_path, cache_folder=model_cache, local_files_only=local_only)
+        except ImportError as exc:
+            print('sentence-transformers unavailable (%s); using transformers mean pooling.' % exc, file=sys.stderr)
+            embedder = TransformersEmbedder(model_path, model_cache, local_only)
     return embedder
+
+STOPWORDS = set("""a about above after again against all am an and any are as at be because been before being below between both but by can could did do does doing down during each few for from further had has have having he her here hers him his how i if in into is it its itself just me more most my no nor not now of off on once only or other our out over own same she should so some such than that the their them then there these they this those through to too under until up very was we were what when where which while who whom why will with would you your yours also get got like one really even still much many well yes oh ok bro sir""".split())
+
+def fallback_clusters(texts, vectors, min_size=3, threshold=0.5):
+    """Pure-numpy topic discovery for when BERTopic/scikit-learn cannot load:
+    cosine community detection on the embeddings, outliers = -1, c-TF-IDF keywords per cluster."""
+    import numpy as np
+    n = len(texts)
+    sims = vectors @ vectors.T
+    labels = np.full(n, -1)
+    for i in np.argsort(-(sims >= threshold).sum(1)):
+        if labels[i] != -1:
+            continue
+        members = [j for j in np.where(sims[i] >= threshold)[0] if labels[j] == -1]
+        if len(members) >= min_size:
+            labels[members] = labels.max() + 1
+    probs = np.zeros(n)
+    docs = {}
+    for c in set(labels.tolist()) - {-1}:
+        idx = np.where(labels == c)[0]
+        centroid = vectors[idx].mean(0)
+        centroid /= np.linalg.norm(centroid) or 1
+        probs[idx] = vectors[idx] @ centroid
+        docs[c] = [w for i in idx for w in re.findall(r'\w+', texts[i].lower()) if len(w) > 2 and not w.isdigit() and w not in STOPWORDS]
+    total = {}
+    for words in docs.values():
+        for w in words:
+            total[w] = total.get(w, 0) + 1
+    avg = (sum(len(w) for w in docs.values()) / len(docs)) if docs else 1
+    keywords = {}
+    for c, words in docs.items():
+        tf = {}
+        for w in words:
+            tf[w] = tf.get(w, 0) + 1
+        ranked = sorted(tf, key=lambda w: -tf[w] * np.log(1 + avg / total[w]))
+        keywords[c] = ranked[:4]
+    return labels.tolist(), probs.tolist(), keywords
 
 def analyze(posts):
     from argus_nlp.schema import PostInput
@@ -91,10 +155,20 @@ def topics(posts):
             post.pop(field, None)
     if len(posts) < 5:
         return {'posts': posts, 'status': 'Need at least five posts for topic clustering.'}
-    from bertopic import BERTopic
-    from sklearn.decomposition import PCA
-    from sklearn.cluster import HDBSCAN
-    from sklearn.feature_extraction.text import CountVectorizer
+    try:
+        from bertopic import BERTopic
+        from sklearn.decomposition import PCA
+        from sklearn.cluster import HDBSCAN
+        from sklearn.feature_extraction.text import CountVectorizer
+    except ImportError as exc:
+        print('BERTopic unavailable (%s); using embedding community fallback.' % exc, file=sys.stderr)
+        ids, probabilities, keywords = fallback_clusters(texts, vectors)
+        for post, topic_id, probability in zip(posts, ids, probabilities):
+            post['topic'] = 'Unclustered / outliers' if topic_id == -1 else (' · '.join(keywords.get(topic_id) or []) or f'Topic {topic_id + 1} (keywords unavailable)')
+            post['topic_id'] = int(topic_id)
+            post['topic_source'] = 'Embedding clusters'
+            post['topic_probability'] = float(probability) if topic_id != -1 else None
+        return {'posts': posts, 'status': 'Topics used embedding community clustering because BERTopic/scikit-learn is blocked on this PC (Windows Application Control).'}
     # PCA is a supported BERTopic reducer; deterministic and suitable for a tiny demo corpus.
     model = BERTopic(embedding_model=None, umap_model=PCA(n_components=min(5, len(posts)-1), random_state=42),
                     hdbscan_model=HDBSCAN(min_cluster_size=3, min_samples=2),

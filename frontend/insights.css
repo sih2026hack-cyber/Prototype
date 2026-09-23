@@ -3,3 +3,15 @@
 
 .import-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}.import-grid label{display:grid;gap:6px;font-size:11px;color:var(--muted)}.import-grid input{min-width:0;width:100%}.import-grid input[type=file]{padding:8px;font-size:12px}#importPanel details{margin-top:14px;padding-top:12px}.stat-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.stat-grid>div{border:1px solid var(--line);border-radius:8px;padding:12px;background:#0b141d}.stat-grid strong{display:block;font-size:20px;font-weight:600;color:var(--text)}.stat-grid span{font-size:11px;color:var(--muted)}.abuse-tag{display:inline-block;margin-top:8px;font-size:11px;color:#f68e9c;border:1px solid #f68e9c55;border-radius:999px;padding:2px 9px}.demo-source{font-size:11px;color:var(--muted)}@media(max-width:600px){.import-grid,.stat-grid{grid-template-columns:1fr}}
 .estimate-tag{display:inline-block;margin-left:8px;font-size:10px;font-weight:500;color:#eecb7c;border:1px solid #eecb7c55;border-radius:999px;padding:1px 8px;vertical-align:middle}
+.leader-quote{margin:6px 0 0;font-size:12px;line-height:1.6;color:var(--muted);overflow-wrap:anywhere}.leader-quote a{color:var(--teal);white-space:nowrap}
+/* Full-width Audience and Network panels with equal boxes */
+.insight-grid #sentiment{order:1}.insight-grid #trends{order:2}.insight-grid #audiencePanel{order:3;grid-column:1/-1}.insight-grid #network{order:4;grid-column:1/-1}
+.box-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:stretch;margin-top:8px}
+.box{border:1px solid var(--line);border-radius:12px;padding:18px;background:#0b141d80;min-width:0}
+.box>h4:first-child,.box>.box-body>h4:first-child{margin-top:0}
+.box .stat-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.box .stat-grid>div{padding:10px}.box .stat-grid strong{font-size:18px}
+.demo-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:26px}.demo-head h4{margin:0}.demo-head .demo-source{margin:0}
+#demographics .demographic-grid{margin-top:12px}
+.net-layout{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:22px;align-items:start}
+.net-layout .box h4{margin-top:0}#leaders .topic-row{padding:12px 0}
+@media(max-width:900px){.box-grid,.net-layout{grid-template-columns:1fr}}

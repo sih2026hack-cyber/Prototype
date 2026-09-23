@@ -50,7 +50,7 @@ function networkView(net){
     +nodes.map(n=>{const p=pos.get(n.id);if(n.kind==='video')return `<circle cx="${p.x}" cy="${p.y}" r="16" fill="#83baff"><title>${esc(n.label)}</title></circle><text x="${p.x}" y="${p.y+4}" text-anchor="middle" fill="#0b141d" font-weight="600">▶</text>`;
       const r=5+Math.min(7,(counts.get(n.id)||1)*1.5);return `<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${top.has(n.id)?'#7be8c0':'#3f8f7c'}"><title>${esc(n.label)} · ${counts.get(n.id)||0} interactions</title></circle>${top.has(n.id)?`<text x="${p.x}" y="${p.y+r+12}" text-anchor="middle">${esc(n.label.slice(-8))}</text>`:''}`;}).join('')+'</svg>';
   $('#networkNote').innerHTML='<span style="color:#83baff">● video</span> · <span style="color:#7be8c0">● most-replied participants</span> · <span style="color:#b3a1ff">→ reply</span> · '+people.length+'/'+(net.nodes.length-net.nodes.filter(n=>n.kind==='video').length)+' participants · '+edges.length+'/'+net.edges.length+' connections';
-  $('#leaders').innerHTML=net.leaders.slice(0,5).map(a=>'<div class="topic-row"><div class="topic-title"><span>'+esc(a.label)+'</span><b>'+a.unique_incoming_repliers+' repliers</b></div><small class="muted">'+a.comments+' comments · '+(a.likes??'Unavailable')+' likes</small></div>').join('')||empty('No participant ranking','Author identifiers were unavailable.');
+  $('#leaders').innerHTML=net.leaders.slice(0,5).map(a=>'<div class="topic-row"><div class="topic-title"><span>'+esc(a.label)+'</span><b>'+a.unique_incoming_repliers+' repliers</b></div><small class="muted">'+a.comments+' comments · '+(a.likes??'Unavailable')+' likes</small>'+(a.sample?'<p class="leader-quote">“'+esc(a.sample.text)+'”'+(safeURL(a.sample.url)?' <a href="'+esc(safeURL(a.sample.url))+'" target="_blank" rel="noreferrer">view on YouTube ↗</a>':'')+'</p>':'')+'</div>').join('')||empty('No participant ranking','Author identifiers were unavailable.');
 }
 function summaryBullets(text){
   if(!text)return '';
@@ -78,7 +78,7 @@ function participationView(p){
   if(!p){$('#participation').innerHTML='';return;}
   const stat=(value,label)=>'<div><strong>'+esc(value)+'</strong><span>'+esc(label)+'</span></div>';
   const time=Object.entries(p.time_of_day_ist||{}).map(([label,value])=>({label,value}));
-  $('#participation').innerHTML='<h4>Participation</h4><div class="stat-grid">'+stat(p.commenters,'unique commenters')+stat(p.repeat,'commented more than once')+stat(p.replies,'replies · '+p.top_level+' top-level')+'</div>'
+  $('#participation').innerHTML='<h4>Participation</h4><div class="stat-grid">'+stat(p.commenters,'commenters')+stat(p.repeat,'repeat')+stat(p.replies,'replies')+'</div>'
     +(p.abusive?'<p class="footnote"><span class="abuse-tag">'+p.abusive+' comment'+(p.abusive===1?'':'s')+' with abusive language · masked</span></p>':'')
     +'<h4>When they comment (IST)</h4>'+bars(time,time.reduce((a,b)=>a+b.value,0),'#7be8c0');
 }
@@ -91,7 +91,7 @@ function segmentsView(s){
     return;
   }
   $('#segments').innerHTML=head+(s.segments.length?bars(s.segments.map(g=>({label:g.label+' · conf '+g.confidence.toFixed(2),value:g.count})),s.classified,'#eecb7c'):empty('No segment large enough to show','Fewer than 3 commenters described themselves in any one way.'))
-    +'<p class="footnote">'+s.classified+' of '+s.estimated+' comments described themselves · '+s.unstated+' didn’t say'+(s.hidden_groups?' · '+s.hidden_groups+' small group'+(s.hidden_groups===1?'':'s')+' hidden':'')+'. No age, gender or religion is guessed.</p>';
+    +'<p class="footnote">'+s.classified+' of '+s.estimated+' comments described themselves · '+s.unstated+' didn’t say'+(s.hidden_groups?' · '+s.hidden_groups+' small group'+(s.hidden_groups===1?'':'s')+' hidden':'')+'. Only counts people who describe themselves.</p>';
 }
 function audienceView(data){
   participationView(data.participation);segmentsView(data.audienceSegments);
@@ -99,19 +99,19 @@ function audienceView(data){
   const r=data.audienceReport;
   if(!r){
     const e=data.audienceEstimates;
-    if(!e||e.status==='not_estimated'){$('#demographics').innerHTML='<h4>Age, gender &amp; country</h4><div class="demographic-grid">'+['Age','Gender','Country'].map(label=>'<div><span>'+label+'</span><strong>Not estimated yet</strong></div>').join('')+'</div><p class="footnote">Press <b>Estimate audience</b> above for an AI estimate, or import real YouTube Studio data below.</p>';return;}
+    if(!e||e.status==='not_estimated'){$('#demographics').innerHTML='<div class="demo-head"><h4>Age, gender &amp; country</h4></div><div class="demographic-grid">'+['Age','Gender','Country'].map(label=>'<div><span>'+label+'</span><strong>Not estimated yet</strong></div>').join('')+'</div><p class="footnote">Press <b>Estimate audience</b> above for an AI estimate, or import real YouTube Studio data below.</p>';return;}
     const block=(title,d,fmt=x=>x)=>'<h4>'+title+'</h4>'+(d.rows.length?bars(d.rows.map(x=>({label:fmt(x.label),value:x.count})),d.total,'#83baff'):'<p class="footnote">No group large enough to show.</p>')+'<p class="footnote">'+d.unclear+' unclear'+(d.hidden?' · '+d.hidden+' small group'+(d.hidden===1?'':'s')+' hidden':'')+'</p>';
-    $('#demographics').innerHTML='<h4>Age, gender &amp; country <span class="estimate-tag">'+esc(e.label)+'</span></h4><p class="demo-source">'+e.estimated+' comments · average confidence '+(e.confidence??'—')+(e.pending?' · '+e.pending+' pending':'')+'</p>'
-      +block('Age',e.dimensions.age)+block('Gender',e.dimensions.gender)+block('Country',e.dimensions.region,regionName)
+    $('#demographics').innerHTML='<div class="demo-head"><h4>Age, gender &amp; country <span class="estimate-tag">'+esc(e.label)+'</span></h4><p class="demo-source">'+e.estimated+' comments · average confidence '+(e.confidence??'—')+(e.pending?' · '+e.pending+' pending':'')+'</p></div>'
+      +'<div class="box-grid"><div class="box">'+block('Age',e.dimensions.age)+'</div><div class="box">'+block('Gender',e.dimensions.gender)+'</div><div class="box">'+block('Country',e.dimensions.region,regionName)+'</div></div>'
       +'<p class="footnote">'+esc(e.note)+' Import YouTube Studio data below for real figures.</p>';
     return;
   }
   const source=r.source==='youtube_analytics'?'YouTube Studio analytics':'Voluntary survey';
-  $('#demographics').innerHTML='<h4>Age, gender &amp; country</h4><p class="demo-source">'+esc(source)+' · '+esc(r.population)+' · '+esc(r.period)+(r.sample_size?' · '+esc(r.sample_size)+' people':'')+'</p>'
-    +Object.entries(r.dimensions).filter(([,rows])=>rows.length).map(([dimension,rows])=>{
+  $('#demographics').innerHTML='<div class="demo-head"><h4>Age, gender &amp; country</h4></div><p class="demo-source">'+esc(source)+' · '+esc(r.population)+' · '+esc(r.period)+(r.sample_size?' · '+esc(r.sample_size)+' people':'')+'</p>'
+    +'<div class="box-grid">'+Object.entries(r.dimensions).filter(([,rows])=>rows.length).map(([dimension,rows])=>{
       const shown=rows.filter(row=>!row.suppressed).map(row=>({label:dimension==='country'?regionName(row.label):row.label,value:Math.round(row.percent*10)/10})),hidden=rows.filter(row=>row.suppressed).length;
-      return '<h4>'+esc(dimensionNames[dimension]||dimension)+'</h4>'+bars(shown,100,'#83baff').replace(/ · \d+%/g,'%')+(hidden?'<p class="footnote">'+hidden+' small group'+(hidden===1?'':'s')+' hidden for privacy.</p>':'');
-    }).join('')+'<p class="footnote">This is a separate population from the commenters above.</p>';
+      return '<div class="box"><h4>'+esc(dimensionNames[dimension]||dimension)+'</h4>'+bars(shown,100,'#83baff').replace(/ · \d+%/g,'%')+(hidden?'<p class="footnote">'+hidden+' small group'+(hidden===1?'':'s')+' hidden for privacy.</p>':'')+'</div>';
+    }).join('')+'</div><p class="footnote">This is a separate population from the commenters above.</p>';
 }
 // --- Aggregate audience import (YouTube Studio exports or opt-in survey totals) ---
 function parseCSV(text){
@@ -182,7 +182,7 @@ async function refreshDashboard(){
   }catch(e){$('#ingestStatus').textContent=e.message;}finally{loading=false;}
 }
 function changed(){generation++;history.length=0;$('#chatLog').textContent='';current=null;$('#downloadPdf').disabled=true;refreshDashboard();}
-$('#sourceForm').addEventListener('submit',async e=>{e.preventDefault();try{const r=await post('/api/analysis/run',{url:$('#sourceUrl').value.trim()});pendingRun=r.run_id;$('#ingestStatus').textContent='Analysis queued…';await refreshDashboard();}catch(e){$('#ingestStatus').textContent=e.message;}});
+$('#sourceForm').addEventListener('submit',async e=>{e.preventDefault();try{const url=$('#sourceUrl').value.trim();const r=url?await post('/api/analysis/run',{url}):await post('/api/discovery/run',{});pendingRun=r.run_id;$('#ingestStatus').textContent=url?'Analysis queued…':r.accepted===false?(r.message||'Showing today’s trending analysis.'):'Finding today’s trending channels…';await refreshDashboard();}catch(e){$('#ingestStatus').textContent=e.message;}});
 for(const id of ['runSelect','fromDate','toDate','groupSelect'])$('#'+id).addEventListener('change',changed);
 $('#downloadPdf').addEventListener('click',()=>{if(current)window.location.href='/api/report.pdf?'+query();});
 $('#liveToggle').addEventListener('change',async()=>{try{await post('/api/analysis/live',{enabled:$('#liveToggle').checked,run:$('#runSelect').value});}catch(e){$('#ingestStatus').textContent=e.message;$('#liveToggle').checked=false;}});
@@ -195,7 +195,24 @@ const history=[];
 function bubble(role,text){const node=document.createElement('div');node.className=`bubble ${role}`;node.textContent=text;$('#chatLog').appendChild(node);$('#chatLog').scrollTop=$('#chatLog').scrollHeight;return node;}
 $('#chatToggle').addEventListener('click',()=>openPanel('chat'));$('#chatClose').addEventListener('click',()=>$('#chatPanel').classList.remove('open'));
 const panels={chat:['#chatPanel','#chatToggle'],trend:['#trendPanel','#trendToggle']};
-function openPanel(name){for(const [key,[panel]] of Object.entries(panels))$(panel).classList.toggle('open',key===name);if(name==='chat')$('#chatInput').focus();}
+function openPanel(name){for(const [key,[panel]] of Object.entries(panels))$(panel).classList.toggle('open',key===name);if(name==='chat'){greet();$('#chatInput').focus();}}
+// Opening message built from the analysis already on screen (no model call).
+function greet(){
+  if($('#chatLog').children.length)return;
+  if(!current){bubble('bot','Hi! I’m ARGUS. Paste a YouTube link above, or leave it empty to analyse today’s trending channels, and I’ll answer questions about what people are saying.');return;}
+  const d=current,s=d.summary.sentiment,n=d.coverage.comments,pct=k=>n?Math.round((s[k]||0)/n*100):0;
+  const mood=['positive','neutral','negative'].sort((a,b)=>(s[b]||0)-(s[a]||0))[0];
+  const topics=d.topics.slice(0,2).map(t=>'“'+t.topic+'”').join(' and ');
+  const e=d.audienceEstimates,age=e?.dimensions?.age?.rows?.slice().sort((a,b)=>b.count-a.count)[0];
+  bubble('bot',`Hi! I’ve analysed ${n} comments${d.videos.length?' on '+(d.videos.length===1?'“'+(d.videos[0].title||d.run.label)+'”':d.videos.length+' videos'):''}.
+
+• Mood: mostly ${mood} (${pct('positive')}% positive · ${pct('neutral')}% neutral · ${pct('negative')}% negative)`+(topics?`
+• Top topics: ${topics}`:'')+(d.participation?`
+• ${d.participation.commenters} people commented, ${d.participation.repeat} more than once`:'')+(age?`
+• Audience (AI estimate): mostly ${age.label}`:'')+`
+
+Ask me why people feel this way, what the main complaints are, or who is driving the conversation.`);
+}
 $('#trendToggle').addEventListener('click',()=>openPanel($('#trendPanel').classList.contains('open')?null:'trend'));$('#trendClose').addEventListener('click',()=>openPanel(null));
 document.addEventListener('keydown',e=>{if(e.key==='Escape')openPanel(null);});
 document.querySelectorAll('.suggestions button').forEach(b=>b.addEventListener('click',()=>{$('#chatInput').value=b.textContent;$('#chatForm').requestSubmit();}));
