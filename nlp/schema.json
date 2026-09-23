@@ -1,0 +1,585 @@
+{
+  "$defs": {
+    "Entity": {
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "source": {
+          "default": "model",
+          "enum": [
+            "model",
+            "gazetteer"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "label",
+        "start",
+        "end"
+      ],
+      "title": "Entity",
+      "type": "object"
+    },
+    "LanguageInfo": {
+      "properties": {
+        "primary_lang": {
+          "default": "und",
+          "title": "Primary Lang",
+          "type": "string"
+        },
+        "lang_confidence": {
+          "default": 0.0,
+          "title": "Lang Confidence",
+          "type": "number"
+        },
+        "is_code_mixed": {
+          "default": false,
+          "title": "Is Code Mixed",
+          "type": "boolean"
+        },
+        "candidates": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "title": "Candidates",
+          "type": "array"
+        }
+      },
+      "title": "LanguageInfo",
+      "type": "object"
+    },
+    "LexicalFeatures": {
+      "properties": {
+        "hashtags": {
+          "items": {
+            "$ref": "#/$defs/Span"
+          },
+          "title": "Hashtags",
+          "type": "array"
+        },
+        "mentions": {
+          "items": {
+            "$ref": "#/$defs/Span"
+          },
+          "title": "Mentions",
+          "type": "array"
+        },
+        "urls": {
+          "items": {
+            "$ref": "#/$defs/Span"
+          },
+          "title": "Urls",
+          "type": "array"
+        },
+        "emojis": {
+          "items": {
+            "$ref": "#/$defs/Span"
+          },
+          "title": "Emojis",
+          "type": "array"
+        },
+        "numbers": {
+          "items": {
+            "$ref": "#/$defs/Span"
+          },
+          "title": "Numbers",
+          "type": "array"
+        },
+        "repeated_punctuation": {
+          "items": {
+            "$ref": "#/$defs/Span"
+          },
+          "title": "Repeated Punctuation",
+          "type": "array"
+        },
+        "hashtag_words": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Hashtag Words",
+          "type": "array"
+        },
+        "emoji_names": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Emoji Names",
+          "type": "array"
+        },
+        "char_count": {
+          "default": 0,
+          "title": "Char Count",
+          "type": "integer"
+        },
+        "word_count": {
+          "default": 0,
+          "title": "Word Count",
+          "type": "integer"
+        },
+        "caps_ratio": {
+          "default": 0.0,
+          "title": "Caps Ratio",
+          "type": "number"
+        },
+        "exclamation_count": {
+          "default": 0,
+          "title": "Exclamation Count",
+          "type": "integer"
+        },
+        "question_count": {
+          "default": 0,
+          "title": "Question Count",
+          "type": "integer"
+        },
+        "elongation_count": {
+          "default": 0,
+          "title": "Elongation Count",
+          "type": "integer"
+        },
+        "slang_hits": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Slang Hits",
+          "type": "array"
+        },
+        "is_empty_after_clean": {
+          "default": false,
+          "title": "Is Empty After Clean",
+          "type": "boolean"
+        }
+      },
+      "title": "LexicalFeatures",
+      "type": "object"
+    },
+    "NLPFeatures": {
+      "properties": {
+        "tokens": {
+          "items": {
+            "$ref": "#/$defs/Token"
+          },
+          "title": "Tokens",
+          "type": "array"
+        },
+        "lemmas": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Lemmas",
+          "type": "array"
+        },
+        "entities": {
+          "items": {
+            "$ref": "#/$defs/Entity"
+          },
+          "title": "Entities",
+          "type": "array"
+        },
+        "noun_chunks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Noun Chunks",
+          "type": "array"
+        },
+        "spacy_model": {
+          "default": "",
+          "title": "Spacy Model",
+          "type": "string"
+        },
+        "processed": {
+          "default": false,
+          "title": "Processed",
+          "type": "boolean"
+        }
+      },
+      "title": "NLPFeatures",
+      "type": "object"
+    },
+    "PIIFlags": {
+      "description": "What we redacted before anything left this module.",
+      "properties": {
+        "emails_redacted": {
+          "default": 0,
+          "title": "Emails Redacted",
+          "type": "integer"
+        },
+        "phones_redacted": {
+          "default": 0,
+          "title": "Phones Redacted",
+          "type": "integer"
+        },
+        "id_numbers_redacted": {
+          "default": 0,
+          "title": "Id Numbers Redacted",
+          "type": "integer"
+        }
+      },
+      "title": "PIIFlags",
+      "type": "object"
+    },
+    "RiskSignals": {
+      "description": "Lexical harm indicators. Module 4 (AI moderator) consumes this.\n\nDeliberately lexicon-based and explainable - we report which terms matched,\nnever a bare unexplained score.",
+      "properties": {
+        "profanity": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Profanity",
+          "type": "array"
+        },
+        "threat": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Threat",
+          "type": "array"
+        },
+        "identity_attack": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Identity Attack",
+          "type": "array"
+        },
+        "aggression_score": {
+          "default": 0.0,
+          "title": "Aggression Score",
+          "type": "number"
+        },
+        "has_risk": {
+          "default": false,
+          "title": "Has Risk",
+          "type": "boolean"
+        }
+      },
+      "title": "RiskSignals",
+      "type": "object"
+    },
+    "SentimentResult": {
+      "properties": {
+        "label": {
+          "default": "unavailable",
+          "enum": [
+            "positive",
+            "negative",
+            "neutral",
+            "unavailable"
+          ],
+          "title": "Label",
+          "type": "string"
+        },
+        "score": {
+          "default": 0.0,
+          "title": "Score",
+          "type": "number"
+        },
+        "confidence": {
+          "default": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "source": {
+          "default": "unavailable",
+          "enum": [
+            "vader",
+            "minimax",
+            "vader_llm_failed",
+            "unavailable",
+            "skipped_empty"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "vader": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VaderScores"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "emotions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Emotions",
+          "type": "array"
+        },
+        "escalated": {
+          "default": false,
+          "title": "Escalated",
+          "type": "boolean"
+        },
+        "escalation_reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Escalation Reasons",
+          "type": "array"
+        },
+        "llm_rationale": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Llm Rationale"
+        }
+      },
+      "title": "SentimentResult",
+      "type": "object"
+    },
+    "Span": {
+      "description": "A extracted substring plus where it sat in original_text.\n\nOffsets are what let the variant builder mask exactly these spans instead\nof re-running regexes over already-modified text.",
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "title": "End",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "text",
+        "start",
+        "end"
+      ],
+      "title": "Span",
+      "type": "object"
+    },
+    "Token": {
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "lemma": {
+          "title": "Lemma",
+          "type": "string"
+        },
+        "pos": {
+          "title": "Pos",
+          "type": "string"
+        },
+        "tag": {
+          "title": "Tag",
+          "type": "string"
+        },
+        "dep": {
+          "title": "Dep",
+          "type": "string"
+        },
+        "is_stop": {
+          "title": "Is Stop",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "text",
+        "lemma",
+        "pos",
+        "tag",
+        "dep",
+        "is_stop"
+      ],
+      "title": "Token",
+      "type": "object"
+    },
+    "VaderScores": {
+      "properties": {
+        "compound": {
+          "title": "Compound",
+          "type": "number"
+        },
+        "pos": {
+          "title": "Pos",
+          "type": "number"
+        },
+        "neu": {
+          "title": "Neu",
+          "type": "number"
+        },
+        "neg": {
+          "title": "Neg",
+          "type": "number"
+        }
+      },
+      "required": [
+        "compound",
+        "pos",
+        "neu",
+        "neg"
+      ],
+      "title": "VaderScores",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "post_id": {
+      "title": "Post Id",
+      "type": "string"
+    },
+    "source": {
+      "title": "Source",
+      "type": "string"
+    },
+    "author_ref_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Author Ref Hash"
+    },
+    "timestamp": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Timestamp"
+    },
+    "parent_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent Id"
+    },
+    "original_text": {
+      "title": "Original Text",
+      "type": "string"
+    },
+    "analysis_text": {
+      "default": "",
+      "title": "Analysis Text",
+      "type": "string"
+    },
+    "nlp_text": {
+      "default": "",
+      "title": "Nlp Text",
+      "type": "string"
+    },
+    "content_hash": {
+      "default": "",
+      "title": "Content Hash",
+      "type": "string"
+    },
+    "is_duplicate": {
+      "default": false,
+      "title": "Is Duplicate",
+      "type": "boolean"
+    },
+    "language": {
+      "$ref": "#/$defs/LanguageInfo"
+    },
+    "lexical": {
+      "$ref": "#/$defs/LexicalFeatures"
+    },
+    "risk": {
+      "$ref": "#/$defs/RiskSignals"
+    },
+    "pii": {
+      "$ref": "#/$defs/PIIFlags"
+    },
+    "nlp": {
+      "$ref": "#/$defs/NLPFeatures"
+    },
+    "sentiment": {
+      "$ref": "#/$defs/SentimentResult"
+    },
+    "model_versions": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Model Versions",
+      "type": "object"
+    },
+    "timings_ms": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Timings Ms",
+      "type": "object"
+    },
+    "processed_at": {
+      "format": "date-time",
+      "title": "Processed At",
+      "type": "string"
+    },
+    "errors": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Errors",
+      "type": "array"
+    }
+  },
+  "required": [
+    "post_id",
+    "source",
+    "original_text"
+  ],
+  "title": "NLPResult",
+  "type": "object"
+}

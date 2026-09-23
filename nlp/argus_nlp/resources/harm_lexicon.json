@@ -1,0 +1,24 @@
+{
+  "_comment": "Lexical risk indicators for Module 4 (AI moderator). Deliberately small, explainable and auditable - we report WHICH term matched, never a bare score. Extend with a reviewed list; do not scrape one.",
+  "profanity": [
+    "damn", "hell", "crap", "shit", "fuck", "fucking", "bastard", "bitch",
+    "asshole", "dumbass", "jackass", "prick", "scumbag", "moron", "idiot",
+    "stupid", "retard", "loser", "trash", "garbage", "pathetic"
+  ],
+  "threat": [
+    "kill", "murder", "shoot", "stab", "bomb", "burn", "destroy you",
+    "beat you", "hunt you", "find you", "come for you", "you will pay",
+    "watch your back", "dead man", "end you", "wipe out", "eliminate"
+  ],
+  "identity_attack": [
+    "go back to", "your kind", "you people", "vermin", "parasite",
+    "subhuman", "animals", "infest", "invader", "traitor", "anti national",
+    "terrorist sympathiser", "sellout"
+  ],
+  "sarcasm_markers": [
+    "/s", "yeah right", "sure buddy", "oh great", "how wonderful",
+    "just what i needed", "thanks a lot", "brilliant idea", "genius move",
+    "well done genius", "as if", "totally believable", "shocking",
+    "what a surprise", "nice job"
+  ]
+}

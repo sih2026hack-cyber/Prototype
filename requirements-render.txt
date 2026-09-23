@@ -1,0 +1,14 @@
+# Python for the Render free plan (512 MB): no torch/spaCy/BERTopic in memory.
+# RoBERTa sentiment and MiniLM embeddings run on the Hugging Face Inference API (HF_TOKEN);
+# topics use the numpy embedding-cluster fallback; NER uses the gazetteer.
+pydantic>=2.6,<3
+PyYAML>=6.0
+emoji>=2.10
+wordsegment>=1.3
+lingua-language-detector>=2.0
+vaderSentiment>=3.3.2
+requests>=2.31
+python-dotenv>=1.0
+numpy>=1.26,<3
+reportlab>=4.1,<5
+uharfbuzz>=0.40

@@ -1,0 +1,25 @@
+# Render's free plan sleeps when idle, so the 9 AM IST discovery would never fire on its own.
+# This wakes the service, starts today's trending analysis and keeps it awake until it finishes.
+# Repo secrets: ARGUS_URL (https://<service>.onrender.com), ARGUS_USER, ARGUS_PASSWORD.
+name: Daily trending discovery
+on:
+  schedule:
+    - cron: '25 3 * * *'   # 08:55 IST
+  workflow_dispatch:
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Wake service and start discovery
+        env:
+          URL: ${{ secrets.ARGUS_URL }}
+          AUTH: ${{ secrets.ARGUS_USER }}:${{ secrets.ARGUS_PASSWORD }}
+        run: |
+          for i in $(seq 1 20); do curl -fsS -m 30 "$URL/healthz" && break; sleep 15; done
+          curl -fsS -m 60 -u "$AUTH" -X POST -H 'Content-Type: application/json' -d '{}' "$URL/api/discovery/run"; echo
+          for i in $(seq 1 40); do
+            sleep 60
+            busy=$(curl -fsS -m 30 -u "$AUTH" "$URL/api/analysis/status" | python3 -c 'import json,sys;print(json.load(sys.stdin)["busy"])')
+            echo "busy=$busy"; [ "$busy" = "False" ] && break
+          done

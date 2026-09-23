@@ -2,9 +2,11 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import {ROOT,settings} from './lib/config.mjs';
-import {readLocal,saveLocal,upsert} from './lib/storage.mjs';
+import {ROOT,settings,server} from './lib/config.mjs';
+import {readLocal,saveLocal,upsert,restoreState} from './lib/storage.mjs';
 import {ServiceError} from './lib/providers.mjs';
+const restored=await restoreState(); // must run before any module reads runtime state
+if(restored)console.log(`Restored ${restored} state files from Supabase`);
 import {moderate,inspectDraft} from './lib/moderation.mjs';
 import {redact} from './lib/privacy.mjs';
 import {chat} from './lib/chat.mjs';
@@ -13,6 +15,19 @@ import {createAnalysisService} from './lib/analysis-service.mjs';
 import {reportPDF} from './lib/report.mjs';
 const service=createAnalysisService();
 const decisions=readLocal('moderation',[]);
+// Local: only localhost. Public (Render): its hostname, behind HTTP Basic Auth.
+const localHosts=[`localhost:${settings.port}`,`127.0.0.1:${settings.port}`];
+const allowedHost=h=>localHosts.includes(h)||server.hosts.includes(String(h||'').toLowerCase().replace(/:\d+$/,''));
+const allowedOrigin=(o,h)=>{try{const u=new URL(o);return u.host===h&&(u.protocol==='https:'||localHosts.includes(u.host));}catch{return false;}};
+const same=(a,b)=>{const x=Buffer.from(String(a)),y=Buffer.from(String(b));return x.length===y.length&&crypto.timingSafeEqual(x,y);};
+function authorized(req){
+  if(!server.isPublic)return true;
+  if(!server.password)return false; // never serve a public instance without a password
+  const [scheme,token]=String(req.headers.authorization||'').split(' ');
+  if(scheme!=='Basic'||!token)return false;
+  const [user,...rest]=Buffer.from(token,'base64').toString().split(':');
+  return same(user,server.user)&&same(rest.join(':'),server.password);
+}
 function json(res,value,code=200){res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));}
 async function body(req){let value='';for await(const chunk of req){value+=chunk;if(value.length>24000)throw new ServiceError('Request too large.',413);}try{return JSON.parse(value||'{}');}catch{throw new ServiceError('Invalid JSON.',400);}}
 function textInput(value,max=4000){if(typeof value!=='string'||!value.trim()||value.length>max)throw new ServiceError('Enter a nonempty value within the allowed length.',400);return redact(value.trim());}
@@ -67,12 +82,14 @@ const assets=new Map([['/',['frontend/index.html','text/html']],['/frontend/inde
 assets.set('/frontend/insights.css',['frontend/insights.css','text/css']);
 http.createServer(async(req,res)=>{
   try{
-    if(![`localhost:${settings.port}`,`127.0.0.1:${settings.port}`].includes(req.headers.host))return json(res,{error:'Invalid host'},403);
-    if(req.headers.origin&&![`http://localhost:${settings.port}`,`http://127.0.0.1:${settings.port}`].includes(req.headers.origin))return json(res,{error:'Cross-origin requests are not allowed'},403);
+    if(req.url==='/healthz')return json(res,{ok:true}); // Render health check, no data
+    if(!allowedHost(req.headers.host))return json(res,{error:'Invalid host'},403);
+    if(req.headers.origin&&!allowedOrigin(req.headers.origin,req.headers.host))return json(res,{error:'Cross-origin requests are not allowed'},403);
+    if(!authorized(req)){res.writeHead(401,{'WWW-Authenticate':'Basic realm="ARGUS", charset="UTF-8"','Content-Type':'text/plain; charset=utf-8'});res.end(server.password?'Sign in to ARGUS.':'Set ARGUS_PASSWORD in the Render environment to use this deployment.');return;}
     const url=new URL(req.url,`http://127.0.0.1:${settings.port}`);
     if(url.pathname.startsWith('/api/')||url.pathname.startsWith('/moderate'))return await api(req,res,url);
     const asset=assets.get(url.pathname);if(!asset||req.method!=='GET')return json(res,{error:'Not found'},404);
     res.writeHead(200,{'Content-Type':asset[1]+'; charset=utf-8','Cache-Control':'no-cache','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'"});res.end(fs.readFileSync(path.join(ROOT,asset[0])));
   }catch(error){json(res,{error:error.status?error.message:'Operation failed. Check service availability and retry.'},error.status||500);}
-}).listen(settings.port,'127.0.0.1',()=>{console.log(`ARGUS http://localhost:${settings.port}`);service.tick();});
+}).listen(settings.port,server.host,()=>{console.log(`ARGUS listening on ${server.host}:${settings.port}${server.isPublic?' (public, password '+(server.password?'set':'MISSING')+')':''}`);service.tick();});
 setInterval(()=>service.tick(),30000).unref();

@@ -1,0 +1,41 @@
+# ARGUS Module 5 configuration.
+# Environment variables override everything here (see .env.example).
+
+nlp:
+  english_model: en_core_web_sm
+  multilingual_model: xx_ent_wiki_sm
+  batch_size: 64
+  # Keep at 1 on Windows. spaCy's multiprocessing uses spawn here, which
+  # re-imports the module in every worker - it usually costs more than it saves
+  # at demo scale.
+  n_process: 1
+
+privacy:
+  redact_pii: true
+  # Override with ARGUS_HASH_SALT. Changing it changes every author hash, so
+  # pick one now and keep it - the network module joins on these.
+  hash_salt: argus-dev-salt
+
+llm:
+  enabled: true
+  # international accounts: api.minimax.io (or api.minimaxi.chat)
+  # China accounts:         api.minimax.chat
+  base_url: https://api.minimax.io/v1/text/chatcompletion_v2
+  model: MiniMax-Text-01
+  timeout_s: 120
+  max_retries: 3
+  batch_size: 10          # posts per API call
+  daily_call_cap: 2000    # hard stop; the pipeline degrades rather than overspends
+
+escalation:
+  weak_compound: 0.45
+  min_lang_confidence: 0.7
+  mixed_polarity: 0.30
+  min_tokens: 2
+  # The main cost dial. True catches negative posts that use no word in VADER's
+  # lexicon, at the price of also paying to confirm that factual posts are
+  # neutral. Run `run_batch.py --report` both ways before deciding.
+  escalate_no_lexicon_match: true
+
+cache:
+  path: .cache/llm_cache.sqlite

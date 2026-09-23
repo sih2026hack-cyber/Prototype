@@ -1,0 +1,84 @@
+{
+  "_comment": "Event polarity indicators. This answers a DIFFERENT question from sentiment: not 'how does the writer feel?' but 'is this post about something bad happening?'. 'Heavy flooding in Thoothukudi, NDRF deployed' is neutral in sentiment - the writer states a fact and offers no opinion - but it is exactly what the dashboard must surface. Conflating the two hid disaster reports. Weights are severity 0-1. Deliberately small, auditable and reported by name; extend with a reviewed list, do not scrape one.",
+
+  "negative": {
+    "casualty": {
+      "weight": 1.0,
+      "terms": ["dead", "death", "deaths", "died", "killed", "killing", "fatalities",
+                "casualties", "casualty", "injured", "injuries", "wounded", "missing",
+                "trapped", "drowned", "buried alive", "toll", "bodies"]
+    },
+    "disaster": {
+      "weight": 0.85,
+      "terms": ["flood", "floods", "flooding", "flooded", "inundated", "cyclone",
+                "earthquake", "landslide", "landslip", "tsunami", "drought", "famine",
+                "wildfire", "fire", "blaze", "storm", "cloudburst", "heatwave",
+                "waterlogging", "washed away", "submerged", "evacuation", "evacuated",
+                "relief camp", "rescue", "rescued", "ndrf", "sdrf", "disaster"]
+    },
+    "violence": {
+      "weight": 1.0,
+      "terms": ["attack", "attacked", "blast", "bomb", "bombing", "explosion", "riot",
+                "riots", "clash", "clashes", "shooting", "shot dead", "stabbing",
+                "assault", "terror", "terrorist", "militant", "lynching", "massacre",
+                "firing", "encounter", "hostage", "kidnap", "kidnapped", "abducted"]
+    },
+    "infrastructure": {
+      "weight": 0.6,
+      "terms": ["power cut", "powercut", "outage", "blackout", "load shedding",
+                "collapse", "collapsed", "derail", "derailed", "accident", "crash",
+                "crashed", "pileup", "breakdown", "shutdown", "disruption",
+                "water shortage", "no water", "no electricity", "road blocked"]
+    },
+    "health": {
+      "weight": 0.8,
+      "terms": ["outbreak", "epidemic", "pandemic", "infection", "infections",
+                "quarantine", "lockdown", "dengue", "malaria", "cholera", "covid",
+                "hospitalised", "hospitalized", "icu", "contamination", "poisoning"]
+    },
+    "civil": {
+      "weight": 0.6,
+      "terms": ["protest", "protests", "protesters", "strike", "bandh", "hartal",
+                "curfew", "agitation", "dharna", "boycott", "unrest", "stir",
+                "demonstration", "blockade"]
+    },
+    "crime": {
+      "weight": 0.7,
+      "terms": ["fraud", "scam", "scandal", "corruption", "bribe", "theft", "robbery",
+                "arrested", "arrest", "fir", "raid", "seized", "smuggling",
+                "trafficking", "extortion", "molested", "rape", "harassment"]
+    },
+    "economic": {
+      "weight": 0.5,
+      "terms": ["layoff", "layoffs", "job cuts", "retrenchment", "shortage", "price hike",
+                "inflation", "recession", "crisis", "bankrupt", "default", "loss",
+                "slump", "crash in prices", "unemployment"]
+    }
+  },
+
+  "positive": {
+    "relief": {
+      "weight": 0.8,
+      "terms": ["relief", "restored", "reopened", "aid delivered", "recovered",
+                "evacuees returned", "normalcy", "under control", "contained",
+                "all safe", "no casualties", "compensation", "rehabilitated"]
+    },
+    "development": {
+      "weight": 0.6,
+      "terms": ["inaugurated", "launched", "commissioned", "approved", "sanctioned",
+                "completed", "opened", "expansion", "investment", "new project",
+                "milestone", "record production"]
+    },
+    "achievement": {
+      "weight": 0.6,
+      "terms": ["award", "awarded", "won", "wins", "winner", "champion", "record",
+                "topped", "first place", "medal", "honoured", "honored", "selected",
+                "breakthrough", "success"]
+    },
+    "welfare": {
+      "weight": 0.7,
+      "terms": ["vaccinated", "vaccination drive", "scholarship", "subsidy", "waiver",
+                "free treatment", "employment generated", "hired", "recruitment drive"]
+    }
+  }
+}

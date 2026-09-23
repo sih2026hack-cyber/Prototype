@@ -1,0 +1,53 @@
+{"label": "GPE", "pattern": "Tirunelveli"}
+{"label": "GPE", "pattern": "Thoothukudi"}
+{"label": "GPE", "pattern": "Coimbatore"}
+{"label": "GPE", "pattern": "Madurai"}
+{"label": "GPE", "pattern": "Tiruchirappalli"}
+{"label": "GPE", "pattern": "Salem"}
+{"label": "GPE", "pattern": "Erode"}
+{"label": "GPE", "pattern": "Vellore"}
+{"label": "GPE", "pattern": "Kanyakumari"}
+{"label": "GPE", "pattern": "Nagercoil"}
+{"label": "GPE", "pattern": "Chennai"}
+{"label": "GPE", "pattern": "Bengaluru"}
+{"label": "GPE", "pattern": "Hyderabad"}
+{"label": "GPE", "pattern": "Visakhapatnam"}
+{"label": "GPE", "pattern": "Thiruvananthapuram"}
+{"label": "GPE", "pattern": "Kochi"}
+{"label": "GPE", "pattern": "Kozhikode"}
+{"label": "GPE", "pattern": "Mysuru"}
+{"label": "GPE", "pattern": "Mangaluru"}
+{"label": "GPE", "pattern": "Puducherry"}
+{"label": "GPE", "pattern": "Tamil Nadu"}
+{"label": "GPE", "pattern": "Kerala"}
+{"label": "GPE", "pattern": "Karnataka"}
+{"label": "GPE", "pattern": "Andhra Pradesh"}
+{"label": "GPE", "pattern": "Telangana"}
+{"label": "GPE", "pattern": "Maharashtra"}
+{"label": "GPE", "pattern": "Uttar Pradesh"}
+{"label": "GPE", "pattern": "Madhya Pradesh"}
+{"label": "GPE", "pattern": "West Bengal"}
+{"label": "GPE", "pattern": "Odisha"}
+{"label": "GPE", "pattern": "Assam"}
+{"label": "GPE", "pattern": "Bihar"}
+{"label": "GPE", "pattern": "Gujarat"}
+{"label": "GPE", "pattern": "Rajasthan"}
+{"label": "GPE", "pattern": "Punjab"}
+{"label": "ORG", "pattern": "NTRO"}
+{"label": "ORG", "pattern": "ISRO"}
+{"label": "ORG", "pattern": "DRDO"}
+{"label": "ORG", "pattern": "CBI"}
+{"label": "ORG", "pattern": "NIA"}
+{"label": "ORG", "pattern": "RBI"}
+{"label": "ORG", "pattern": "TRAI"}
+{"label": "ORG", "pattern": "UIDAI"}
+{"label": "ORG", "pattern": "NDRF"}
+{"label": "ORG", "pattern": "CERT-In"}
+{"label": "ORG", "pattern": "MeitY"}
+{"label": "ORG", "pattern": "NDMA"}
+{"label": "ORG", "pattern": "IMD"}
+{"label": "ORG", "pattern": "Election Commission of India"}
+{"label": "ORG", "pattern": "Supreme Court of India"}
+{"label": "ORG", "pattern": "Smart India Hackathon"}
+{"label": "ORG", "pattern": [{"LOWER": "ministry"}, {"LOWER": "of"}, {"IS_TITLE": true, "OP": "+"}]}
+{"label": "EVENT", "pattern": "Smart India Hackathon 2026"}

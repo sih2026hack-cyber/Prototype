@@ -1,0 +1,32 @@
+# Render Blueprint: New > Blueprint > pick this repo. Secrets marked sync:false are asked for once.
+services:
+  - type: web
+    name: argus
+    runtime: docker
+    plan: free
+    region: singapore
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: ARGUS_USER
+        value: argus
+      - key: ARGUS_PASSWORD          # dashboard login (HTTP Basic Auth); required
+        sync: false
+      - key: ARGUS_HASH_SALT         # keeps commenter IDs stable across restarts
+        generateValue: true
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: MINIMAX_API_KEY
+        sync: false
+      - key: MINIMAX_MODEL
+        value: MiniMax-Text-01
+      - key: HF_TOKEN                # Hugging Face token: RoBERTa sentiment + MiniLM embeddings
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: ARGUS_STATE_SYNC        # keep analyses in Supabase (free plan has no disk)
+        value: "true"
+      - key: AUTO_DISCOVERY
+        value: "true"

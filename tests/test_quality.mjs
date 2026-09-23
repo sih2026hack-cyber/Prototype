@@ -12,7 +12,7 @@ import {maskProfanity,maskRecord} from '../lib/profanity.mjs';
 import {participation} from '../lib/insights.mjs';
 {
   const eq=(a,b)=>{if(a!==b)throw new Error(`Expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);};
-  eq(maskProfanity('losu kuthi show').text,'losu k**** show');eq(maskProfanity('fucking hell').masked,1);
+  eq(maskProfanity('losu kuthi show').text,'l*** k**** show');eq(maskProfanity('you idiots are stupid').text,'you i***** are s*****');eq(maskProfanity('fucking hell').masked,1);
   for(const clean of ['Scunthorpe','Dickens','kuthikum','Ooroda Oththa Don','ஒத்த ரூபா'])eq(maskProfanity(clean).masked,0);
   const r=maskRecord({text:'what a bitch',topic_summary:'calling it bastard'});eq(r.abusive,true);eq(r.topic_summary,'calling it b******');
   const p=participation([{author_ref:'a',content_kind:'comment',created_at:'2026-09-23T04:00:00Z',abusive:true},{author_ref:'a',content_kind:'reply',created_at:'2026-09-23T14:00:00Z'},{author_ref:'b',content_kind:'comment',created_at:'2026-09-23T10:00:00Z'}]);

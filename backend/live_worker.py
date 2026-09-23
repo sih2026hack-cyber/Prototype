@@ -65,6 +65,28 @@ class TransformersEmbedder:
                 out.append(vectors.numpy())
         return np.concatenate(out) if out else np.zeros((0, 384))
 
+class HostedEmbedder:
+    """Same multilingual MiniLM model via the Hugging Face Inference API (no torch in memory)."""
+    def __init__(self, token):
+        self.token = token
+        self.url = os.environ.get('HF_INFERENCE_URL', 'https://router.huggingface.co/hf-inference/models/') + embedding_name + '/pipeline/feature-extraction'
+    def encode(self, texts, normalize_embeddings=True, show_progress_bar=False):
+        import numpy as np
+        import requests
+        out = []
+        for i in range(0, len(texts), 32):
+            response = requests.post(self.url, timeout=90, headers={'Authorization': f'Bearer {self.token}'},
+                                     json={'inputs': [t[:1000] for t in texts[i:i+32]], 'options': {'wait_for_model': True}})
+            response.raise_for_status()
+            for item in response.json():
+                vector = np.asarray(item, dtype='float32')
+                if vector.ndim == 2:            # token vectors: mean-pool like sentence-transformers
+                    vector = vector.mean(0)
+                if normalize_embeddings:
+                    vector = vector / (np.linalg.norm(vector) or 1)
+                out.append(vector)
+        return np.asarray(out) if out else np.zeros((0, 384), dtype='float32')
+
 def embedding_model():
     global embedder
     if embedder is None:
@@ -76,8 +98,14 @@ def embedding_model():
             from sentence_transformers import SentenceTransformer
             embedder = SentenceTransformer(model_path, cache_folder=model_cache, local_files_only=local_only)
         except ImportError as exc:
-            print('sentence-transformers unavailable (%s); using transformers mean pooling.' % exc, file=sys.stderr)
-            embedder = TransformersEmbedder(model_path, model_cache, local_only)
+            try:
+                embedder = TransformersEmbedder(model_path, model_cache, local_only)
+                print('sentence-transformers unavailable (%s); using transformers mean pooling.' % exc, file=sys.stderr)
+            except ImportError:
+                if not os.environ.get('HF_TOKEN'):
+                    raise RuntimeError('No local embedding model and HF_TOKEN is not set.')
+                print('No local torch; using the Hugging Face Inference API for embeddings.', file=sys.stderr)
+                embedder = HostedEmbedder(os.environ['HF_TOKEN'])
     return embedder
 
 STOPWORDS = set("""a about above after again against all am an and any are as at be because been before being below between both but by can could did do does doing down during each few for from further had has have having he her here hers him his how i if in into is it its itself just me more most my no nor not now of off on once only or other our out over own same she should so some such than that the their them then there these they this those through to too under until up very was we were what when where which while who whom why will with would you your yours also get got like one really even still much many well yes oh ok bro sir""".split())
