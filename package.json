@@ -1,0 +1,10 @@
+{
+  "name": "argus-live-prototype",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "node live-server.mjs",
+    "test": "node tests/test_quality.mjs && node tests/test_analysis.mjs && node tests/test_server.mjs"
+  }
+}

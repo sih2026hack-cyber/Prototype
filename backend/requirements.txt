@@ -1,0 +1,12 @@
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+httpx>=0.27,<1
+pydantic>=2.8,<3
+python-dotenv>=1.0,<2
+transformers>=4.44,<5
+torch>=2.3,<3
+sentence-transformers>=3.0,<4
+bertopic>=0.16,<1
+spacy>=3.7,<4
+vaderSentiment>=3.3,<4
+numpy>=1.26,<3

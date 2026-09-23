@@ -1,0 +1,13 @@
+{
+  "source": "youtube_analytics",
+  "aggregate_only": true,
+  "population": "Viewers of your authorized channel; specify the channel or report scope",
+  "period": "YYYY-MM-DD to YYYY-MM-DD",
+  "sample_size": null,
+  "dimensions": {
+    "age": [{"label":"18–24","percent":0},{"label":"25–34","percent":0}],
+    "gender": [{"label":"Women","percent":0},{"label":"Men","percent":0}],
+    "country": [],
+    "religion": []
+  }
+}
