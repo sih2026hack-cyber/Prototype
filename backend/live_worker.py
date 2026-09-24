@@ -25,6 +25,7 @@ def get_pipeline():
         settings.llm.max_retries = 1
         settings.llm.timeout_s = 80
         settings.llm.daily_call_cap = 200
+        settings.llm.batch_size = 25   # fewer, larger MiniMax escalation calls = faster runs
         pipeline = Pipeline(settings)
     return pipeline
 

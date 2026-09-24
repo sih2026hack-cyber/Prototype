@@ -168,6 +168,8 @@ async function refreshDashboard(){
     const status=await api('/api/analysis/status'),finished=status.runs.filter(r=>['complete','partial'].includes(r.status));let selected=$('#runSelect').value;
     if(pendingRun){const r=status.runs.find(r=>r.id===pendingRun);if(r&&['complete','partial'].includes(r.status)){selected=pendingRun;pendingRun='';history.length=0;}else if(r?.status==='failed'){pendingRun='';$('#ingestStatus').textContent=r.message;}}
     if(!finished.some(r=>r.id===selected))selected=finished[0]?.id||'';
+    // Follow automatic refreshes: jump to the newest finished run of the same source.
+    const cur=finished.find(r=>r.id===selected),newest=cur&&finished.find(r=>r.source_key===cur.source_key);if(newest&&newest.id!==selected&&!pendingRun)selected=newest.id;
     if(version!==generation)return;
     $('#runSelect').innerHTML=finished.map(r=>'<option value="'+esc(r.id)+'">'+esc(r.label)+' · '+esc(new Date(r.completed_at).toLocaleString())+'</option>').join('')||'<option value="">No saved analysis</option>';$('#runSelect').value=selected;
     $('#analyseBtn').disabled=status.busy;$('#discoverBtn').disabled=status.busy;
@@ -176,7 +178,7 @@ async function refreshDashboard(){
     $('#ingestStatus').textContent=status.busy?'Analysing…':last?.status==='failed'?'Refresh failed · previous results retained':'Ready';
     if(selected){const data=await api('/api/view?'+query());if(version!==generation)return;render(data);$('#updatedAt').textContent='Collected '+new Date(data.run.completed_at).toLocaleString();if(!status.busy&&last?.status!=='failed')$('#ingestStatus').textContent=data.run.warnings.length?'Partial results · see report':'Ready';}
     const d=await api('/api/discovery/status');if(version!==generation)return;$('#discoveryToggle').checked=d.enabled;
-    $('#discoveryStatus').textContent=(d.stale?'Previous sources may be stale. ':'')+'Next scheduled: '+new Date(d.next_at).toLocaleString()+' · '+d.budget.search+'/20 daily searches · Runs only while the server is running.';
+    $('#discoveryStatus').textContent=(d.stale?'Previous sources may be stale. ':'')+(d.enabled&&d.next_refresh_at?'Comments refresh every '+d.refresh_minutes+' min (next '+new Date(d.next_refresh_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'). ':'')+'New channels picked daily at 9 AM IST · '+d.budget.search+'/20 searches today.';
     $('#channels').innerHTML=d.selection.map((c,i)=>'<article class="trend-card"><span class="trend-rank">'+(i+1)+'</span><div><a href="'+esc(safeURL(c.url)||'#')+'" target="_blank" rel="noreferrer">'+esc(c.name)+'</a><p class="footnote">'+esc(c.group.replaceAll('_',' '))+' · <b>'+(Number.isFinite(c.score)?c.score.toFixed(1):'—')+' views/hour</b></p><p class="footnote">'+esc(c.evidence?.[0]?.reason||'')+'</p></div></article>').join('')||empty('Nothing selected yet','Press Discover now, or turn on the daily run.');
     $('#trendBadge').textContent=d.selection.length||'';$('#trendBadge').hidden=!d.selection.length;
   }catch(e){$('#ingestStatus').textContent=e.message;}finally{loading=false;}

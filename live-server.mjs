@@ -91,5 +91,6 @@ http.createServer(async(req,res)=>{
     const asset=assets.get(url.pathname);if(!asset||req.method!=='GET')return json(res,{error:'Not found'},404);
     res.writeHead(200,{'Content-Type':asset[1]+'; charset=utf-8','Cache-Control':'no-cache','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'"});res.end(fs.readFileSync(path.join(ROOT,asset[0])));
   }catch(error){json(res,{error:error.status?error.message:'Operation failed. Check service availability and retry.'},error.status||500);}
-}).listen(settings.port,server.host,()=>{console.log(`ARGUS listening on ${server.host}:${settings.port}${server.isPublic?' (public, password '+(server.password?'set':'MISSING')+')':''}`);service.tick();});
+}).listen(settings.port,server.host,()=>{console.log(`ARGUS listening on ${server.host}:${settings.port}${server.isPublic?' (public, password '+(server.password?'set':'MISSING')+')':''}`);});
+// First automatic check after 30 s, so a request made right after startup is not blocked by a background refresh.
 setInterval(()=>service.tick(),30000).unref();

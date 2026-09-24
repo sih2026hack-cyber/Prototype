@@ -36,3 +36,20 @@ const b=service.start({url:'https://youtu.be/12345678901'});await wait();assert.
 service.live({enabled:true,run:b.run_id});time=new Date(time.getTime()+301000);service.tick();await wait();assert.equal(analyzes,2);assert.equal(service.status().runs.length,4);service.live({enabled:false});
 assert.ok(![...memory.values()].some(v=>JSON.stringify(v).includes('Priya Kumar')),'display names must never be stored');
 console.log('URL validation, API sampling, scoped history, lock/live scheduling, metrics, demographics and network checks passed.');
+{
+  // Hourly trending refresh reuses today's selection (no search) and old refresh runs are pruned.
+  const mem=new Map([['analysis-index',{runs:[{id:'d1',mode:'discovery',status:'complete',source_key:'discovery',day:'2026-09-23',started_at:'2026-09-23T03:30:00Z',completed_at:'2026-09-23T03:40:00Z',warnings:[]}],live:{enabled:false},discovery:{enabled:true,auto_default:true,runs:[{id:'d1',day:'2026-09-23',status:'complete'}],budgets:{},snapshots:{},channels:{},last_success:'d1',selection:[{id:'c1',name:'News',group:'public_issues',video_ids:['abcdefghijk']}]}}]]);
+  const rd=(n,f)=>structuredClone(mem.has(n)?mem.get(n):f),sv=(n,v)=>mem.set(n,structuredClone(v));
+  let t=new Date('2026-09-23T05:00:00Z'),collected=0;const removed=[];
+  const svc=createAnalysisService({read:rd,save:sv,clock:()=>t,get:async()=>({}),refreshMinutes:60,keepRefreshRuns:2,remove:n=>removed.push(n),attachSegments:p=>p,
+    collectSelection:async sel=>{collected++;return {posts:[{id:'youtube:x'+collected,video_id:sel[0].video_ids[0],author_ref:'h',content_kind:'comment',created_at:t.toISOString(),text:'refresh '+collected,metrics:{}}],videos:[{id:'abcdefghijk',title:'V'}],warnings:[]};},
+    discover:async()=>{throw new Error('search must not run during a refresh');},
+    worker:async(action,{posts})=>action==='analyze'?posts.map(p=>({...p,nlp_row:{post_id:p.id},sentiment:{label:'neutral',score:0}})):{posts:posts.map(p=>({...p,topic_source:'Embedding clusters',topic_id:0,topic:'T'})),status:'ok'},
+    enrich:async posts=>({posts,warnings:[]}),persistCorpus:async()=>({nlp_written:1,metadata_written:1,errors:[]}),readRows:async()=>[],upsert:async(_,r)=>r.length});
+  const idle=async()=>{for(let i=0;i<200&&svc.status().busy;i++)await new Promise(r=>setTimeout(r,5));};
+  svc.tick();await idle();assert.equal(collected,1);assert.equal(svc.status().runs[0].mode,'trending');
+  svc.tick();await idle();assert.equal(collected,1,'no second refresh within the hour');
+  for(let i=0;i<3;i++){t=new Date(t.getTime()+3600000);svc.tick();await idle();}
+  assert.equal(collected,4);assert.equal(svc.status().runs.filter(r=>r.mode==='trending').length,2);assert.equal(removed.length,2);
+  console.log('Hourly trending refresh and pruning checks passed.');
+}
