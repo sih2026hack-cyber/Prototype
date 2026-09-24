@@ -172,10 +172,11 @@ async function refreshDashboard(){
     const cur=finished.find(r=>r.id===selected),newest=cur&&finished.find(r=>r.source_key===cur.source_key);if(newest&&newest.id!==selected&&!pendingRun)selected=newest.id;
     if(version!==generation)return;
     $('#runSelect').innerHTML=finished.map(r=>'<option value="'+esc(r.id)+'">'+esc(r.label)+' · '+esc(new Date(r.completed_at).toLocaleString())+'</option>').join('')||'<option value="">No saved analysis</option>';$('#runSelect').value=selected;
-    $('#analyseBtn').disabled=status.busy;$('#discoverBtn').disabled=status.busy;
+    $('#analyseBtn').disabled=false;$('#discoverBtn').disabled=status.busy;
     $('#liveToggle').checked=!!status.live.enabled;$('#liveToggle').disabled=!selected||status.busy;
     const last=status.runs[0];
-    $('#ingestStatus').textContent=status.busy?'Analysing…':last?.status==='failed'?'Refresh failed · previous results retained':'Ready';
+    const mine=pendingRun&&status.runs.find(r=>r.id===pendingRun);
+    $('#ingestStatus').textContent=mine&&['queued','running'].includes(mine.status)?(mine.status==='queued'?'Your link is queued — it starts right after the current refresh…':'Analysing your link: '+(status.job?.message||'working…')):status.busy?'Background refresh running: '+(status.job?.message||''):last?.status==='failed'?'Refresh failed · previous results retained':'Ready';
     if(selected){const data=await api('/api/view?'+query());if(version!==generation)return;render(data);$('#updatedAt').textContent='Collected '+new Date(data.run.completed_at).toLocaleString();if(!status.busy&&last?.status!=='failed')$('#ingestStatus').textContent=data.run.warnings.length?'Partial results · see report':'Ready';}
     const d=await api('/api/discovery/status');if(version!==generation)return;$('#discoveryToggle').checked=d.enabled;
     $('#discoveryStatus').textContent=(d.stale?'Previous sources may be stale. ':'')+(d.enabled&&d.next_refresh_at?'Comments refresh every '+d.refresh_minutes+' min (next '+new Date(d.next_refresh_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'). ':'')+'New channels picked daily at 9 AM IST · '+d.budget.search+'/20 searches today.';
@@ -184,7 +185,7 @@ async function refreshDashboard(){
   }catch(e){$('#ingestStatus').textContent=e.message;}finally{loading=false;}
 }
 function changed(){generation++;history.length=0;$('#chatLog').textContent='';current=null;$('#downloadPdf').disabled=true;refreshDashboard();}
-$('#sourceForm').addEventListener('submit',async e=>{e.preventDefault();try{const url=$('#sourceUrl').value.trim();const r=url?await post('/api/analysis/run',{url}):await post('/api/discovery/run',{});pendingRun=r.run_id;$('#ingestStatus').textContent=url?'Analysis queued…':r.accepted===false?(r.message||'Showing today’s trending analysis.'):'Finding today’s trending channels…';await refreshDashboard();}catch(e){$('#ingestStatus').textContent=e.message;}});
+$('#sourceForm').addEventListener('submit',async e=>{e.preventDefault();try{const url=$('#sourceUrl').value.trim();const r=url?await post('/api/analysis/run',{url}):await post('/api/discovery/run',{});pendingRun=r.run_id;$('#ingestStatus').textContent=url?(r.queued?'Queued: starts right after the current refresh finishes…':'Analysis started…'):r.accepted===false?(r.message||'Showing today’s trending analysis.'):'Finding today’s trending channels…';await refreshDashboard();}catch(e){$('#ingestStatus').textContent=e.message;}});
 for(const id of ['runSelect','fromDate','toDate','groupSelect'])$('#'+id).addEventListener('change',changed);
 $('#downloadPdf').addEventListener('click',()=>{if(current)window.location.href='/api/report.pdf?'+query();});
 $('#liveToggle').addEventListener('change',async()=>{try{await post('/api/analysis/live',{enabled:$('#liveToggle').checked,run:$('#runSelect').value});}catch(e){$('#ingestStatus').textContent=e.message;$('#liveToggle').checked=false;}});
