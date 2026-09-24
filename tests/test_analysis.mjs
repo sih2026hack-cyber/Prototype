@@ -53,3 +53,20 @@ console.log('URL validation, API sampling, scoped history, lock/live scheduling,
   assert.equal(collected,4);assert.equal(svc.status().runs.filter(r=>r.mode==='trending').length,2);assert.equal(removed.length,2);
   console.log('Hourly trending refresh and pruning checks passed.');
 }
+{
+  // A submitted link pre-empts a running background refresh.
+  const mem=new Map([['analysis-index',{runs:[{id:'d1',mode:'discovery',status:'complete',source_key:'discovery',day:'2026-09-23',started_at:'2026-09-23T03:30:00Z',completed_at:'2026-09-23T03:40:00Z',warnings:[]}],live:{enabled:false},discovery:{enabled:true,auto_default:true,runs:[{id:'d1',day:'2026-09-23',status:'complete'}],budgets:{},snapshots:{},channels:{},last_success:'d1',selection:[{id:'c1',name:'News',group:'public_issues',video_ids:['abcdefghijk']}]}}]]);
+  const rd=(n,f)=>structuredClone(mem.has(n)?mem.get(n):f),sv=(n,v)=>mem.set(n,structuredClone(v));
+  let stopped=0,release;const gate=new Promise(r=>release=r);
+  const post=(id,text)=>({id,video_id:'abcdefghijk',author_ref:'h',content_kind:'comment',created_at:'2026-09-23T05:00:00Z',text,metrics:{}});
+  const svc=createAnalysisService({read:rd,save:sv,clock:()=>new Date('2026-09-23T05:00:00Z'),get:async()=>({}),refreshMinutes:60,attachSegments:p=>p,stopWorker:()=>{stopped++;release();},
+    collectSelection:async()=>({posts:[post('youtube:t1','trend')],videos:[{id:'abcdefghijk',title:'V'}],warnings:[]}),
+    collect:async()=>({posts:[post('youtube:u1','user link')],videos:[{id:'abcdefghijk',title:'Mine'}],warnings:[]}),
+    worker:async(action,{posts})=>{if(action==='analyze'&&posts[0].id==='youtube:t1'){await gate;throw new Error('NLP worker stopped');}return action==='analyze'?posts.map(p=>({...p,nlp_row:{post_id:p.id},sentiment:{label:'neutral',score:0}})):{posts:posts.map(p=>({...p,topic_source:'Embedding clusters',topic_id:0,topic:'T'})),status:'ok'};},
+    enrich:async posts=>({posts,warnings:[]}),persistCorpus:async()=>({nlp_written:1,metadata_written:1,errors:[]}),readRows:async()=>[],upsert:async(_,r)=>r.length});
+  svc.tick();await new Promise(r=>setTimeout(r,20));assert.equal(svc.status().job.mode,'trending');
+  const mine=svc.start({url:'https://youtu.be/abcdefghijk'});assert.equal(mine.queued,true);assert.equal(stopped,1,'background worker stopped immediately');
+  for(let i=0;i<200&&svc.status().busy;i++)await new Promise(r=>setTimeout(r,5));
+  const runs=svc.status().runs;assert.equal(runs.find(r=>r.mode==='trending').status,'cancelled');assert.ok(['complete','partial'].includes(runs.find(r=>r.id===mine.run_id).status),'user link finished');
+  console.log('User link pre-empts background refresh checks passed.');
+}
