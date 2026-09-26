@@ -86,8 +86,7 @@ function segmentsView(s){
   if(!s){$('#segments').innerHTML='';return;}
   const head='<h4>Audience segments <small class="muted">· from self-descriptions</small></h4>';
   if(s.status==='not_estimated'||s.pending){
-    $('#segments').innerHTML=head+(s.estimated?bars(s.segments.map(g=>({label:g.label,value:g.count})),s.classified||1,'#eecb7c'):'')+'<p class="footnote">'+(s.estimated?s.pending+' comments not estimated yet. ':'Segments have not been estimated for this analysis. ')+'</p><button id="estimateSegments">Estimate audience</button>';
-    $('#estimateSegments').addEventListener('click',async e=>{e.target.disabled=true;e.target.textContent='Estimating with MiniMax…';try{await post('/api/segments/refresh',{run:$('#runSelect').value});await refreshDashboard();}catch(err){e.target.disabled=false;e.target.textContent='Estimate audience';$('#importStatus').textContent=err.message;$('#segments').insertAdjacentHTML('beforeend','<p class="footnote">'+esc(err.message)+'</p>');}});
+    $('#segments').innerHTML=head+(s.estimated?bars(s.segments.map(g=>({label:g.label,value:g.count})),s.classified||1,'#eecb7c'):'')+'<p class="footnote">Estimating '+s.pending+' comment'+(s.pending===1?'':'s')+' in the background…</p>';
     return;
   }
   $('#segments').innerHTML=head+(s.segments.length?bars(s.segments.map(g=>({label:g.label+' · conf '+g.confidence.toFixed(2),value:g.count})),s.classified,'#eecb7c'):empty('No segment large enough to show','Fewer than 3 commenters described themselves in any one way.'))
@@ -99,12 +98,11 @@ function audienceView(data){
   const r=data.audienceReport;
   if(!r){
     const e=data.audienceEstimates;
-    if(!e||e.status==='not_estimated'){$('#demographics').innerHTML='<div class="demo-head"><h4>Age, gender &amp; country</h4></div><div class="demographic-grid">'+['Age','Gender','Country'].map(label=>'<div><span>'+label+'</span><strong>Not estimated yet</strong></div>').join('')+'</div><p class="footnote">Press <b>Estimate audience</b> above for an AI estimate, or import real YouTube Studio data below.</p>';return;}
+    if(!e||e.status==='not_estimated'){$('#demographics').innerHTML='<div class="demo-head"><h4>Age, gender, country &amp; state</h4></div><div class="demographic-grid">'+['Age','Gender','Country','State'].map(label=>'<div><span>'+label+'</span><strong>Estimating…</strong></div>').join('')+'</div><p class="footnote">AI estimates are being added in the background. Real YouTube Studio data can be imported below.</p>';return;}
     const block=(title,d,fmt=x=>x)=>'<h4>'+title+'</h4>'+(d.rows.length?bars(d.rows.map(x=>({label:fmt(x.label),value:x.count})),d.total,'#83baff'):'<p class="footnote">No group large enough to show.</p>')+'<p class="footnote">'+d.unclear+' unclear'+(d.hidden?' · '+d.hidden+' small group'+(d.hidden===1?'':'s')+' hidden':'')+'</p>';
     $('#demographics').innerHTML='<div class="demo-head"><h4>Age, gender &amp; country <span class="estimate-tag">'+esc(e.label)+'</span></h4><p class="demo-source">'+e.estimated+' comments · average confidence '+(e.confidence??'—')+(e.pending?' · '+e.pending+' pending':'')+'</p></div>'
-      +'<div class="box-grid box-grid-4"><div class="box">'+block('Age',e.dimensions.age)+'</div><div class="box">'+block('Gender',e.dimensions.gender)+'</div><div class="box">'+block('Country',e.dimensions.region,regionName)+'</div><div class="box">'+(e.dimensions.state?block('State / region (India)',e.dimensions.state):'<h4>State / region (India)</h4>')+'</div></div>'+(e.stale?'<p class="footnote">State breakdown missing for '+e.stale+' comments. <button id="estimateState">Add state breakdown</button></p>':'')
+      +'<div class="box-grid box-grid-4"><div class="box">'+block('Age',e.dimensions.age)+'</div><div class="box">'+block('Gender',e.dimensions.gender)+'</div><div class="box">'+block('Country',e.dimensions.region,regionName)+'</div><div class="box">'+(e.dimensions.state?block('State / region (India)',e.dimensions.state):'<h4>State / region (India)</h4>')+'</div></div>'+(e.pending?'<p class="footnote">Adding estimates for '+e.pending+' more comment'+(e.pending===1?'':'s')+' in the background…</p>':'')
       +'<p class="footnote">'+esc(e.note)+' Import YouTube Studio data below for real figures.</p>';
-    $('#estimateState')?.addEventListener('click',async ev=>{ev.target.disabled=true;ev.target.textContent='Estimating…';try{await post('/api/segments/refresh',{run:$('#runSelect').value});await refreshDashboard();}catch(err){ev.target.disabled=false;ev.target.textContent=err.message;}});
     return;
   }
   const source=r.source==='youtube_analytics'?'YouTube Studio analytics':'Voluntary survey';

@@ -29,7 +29,7 @@ assert.equal(collected.posts.length,4);assert.equal(collected.posts[0].metrics.l
 const memory=new Map([['corpus',[{...records[0],nlp_row:{},sentiment:{label:'neutral',score:0},is_seed:false}]]]);
 const read=(name,fallback)=>structuredClone(memory.has(name)?memory.get(name):fallback),save=(name,value)=>memory.set(name,structuredClone(value));
 let time=new Date(date),analyzes=0;
-const service=createAnalysisService({read,save,clock:()=>time,get:async()=>({}),collect:async({videoIds})=>({posts:[{...records[0],id:'youtube:'+videoIds[0],video_id:videoIds[0],text:'fixture '+videoIds[0],author_name:'Priya Kumar'}],videos:[{id:videoIds[0],title:'Fixture'}],warnings:[]}),worker:async(action,{posts})=>{if(action==='analyze'){analyzes++;return posts.map(p=>({...p,nlp_row:{post_id:p.id},sentiment:{label:'neutral',score:0}}));}return {posts:posts.map(p=>({...p,embedding:Array(384).fill(0),topic_source:'BERTopic',topic_id:0,topic:'Fixture'})),status:'ok'};},enrich:async posts=>({posts,warnings:[]}),persistCorpus:async posts=>({nlp_written:posts.length,metadata_written:posts.length,errors:[]}),readRows:async()=>[{post_id:'fixture'}],upsert:async(_,rows)=>rows.length});
+const service=createAnalysisService({backfill:false,read,save,clock:()=>time,get:async()=>({}),collect:async({videoIds})=>({posts:[{...records[0],id:'youtube:'+videoIds[0],video_id:videoIds[0],text:'fixture '+videoIds[0],author_name:'Priya Kumar'}],videos:[{id:videoIds[0],title:'Fixture'}],warnings:[]}),worker:async(action,{posts})=>{if(action==='analyze'){analyzes++;return posts.map(p=>({...p,nlp_row:{post_id:p.id},sentiment:{label:'neutral',score:0}}));}return {posts:posts.map(p=>({...p,embedding:Array(384).fill(0),topic_source:'BERTopic',topic_id:0,topic:'Fixture'})),status:'ok'};},enrich:async posts=>({posts,warnings:[]}),persistCorpus:async posts=>({nlp_written:posts.length,metadata_written:posts.length,errors:[]}),readRows:async()=>[{post_id:'fixture'}],upsert:async(_,rows)=>rows.length});
 const wait=async()=>{for(let i=0;i<200&&service.status().busy;i++)await new Promise(r=>setTimeout(r,5));assert.equal(service.status().busy,false);};
 const a=service.start({url:'https://youtu.be/'+video});const queued=service.start({url:'https://youtu.be/'+video});assert.equal(queued.queued,true,'a link submitted while busy is queued, not rejected');assert.equal(service.status().runs.find(r=>r.id===queued.run_id).status,'queued');assert.throws(()=>service.start({mode:'trending'}),/already running/);await wait();assert.equal(service.status().runs.find(r=>r.id===queued.run_id).status,'complete','queued link runs after the current job');assert.equal(service.view({run:a.run_id}).posts.length,1);assert.equal(service.view({run:'legacy'}).posts[0].id,records[0].id);
 const b=service.start({url:'https://youtu.be/12345678901'});await wait();assert.notEqual(service.view({run:a.run_id}).posts[0].id,service.view({run:b.run_id}).posts[0].id);
@@ -41,7 +41,7 @@ console.log('URL validation, API sampling, scoped history, lock/live scheduling,
   const mem=new Map([['analysis-index',{runs:[{id:'d1',mode:'discovery',status:'complete',source_key:'discovery',day:'2026-09-23',started_at:'2026-09-23T03:30:00Z',completed_at:'2026-09-23T03:40:00Z',warnings:[]}],live:{enabled:false},discovery:{enabled:true,auto_default:true,runs:[{id:'d1',day:'2026-09-23',status:'complete'}],budgets:{},snapshots:{},channels:{},last_success:'d1',selection:[{id:'c1',name:'News',group:'public_issues',video_ids:['abcdefghijk']}]}}]]);
   const rd=(n,f)=>structuredClone(mem.has(n)?mem.get(n):f),sv=(n,v)=>mem.set(n,structuredClone(v));
   let t=new Date('2026-09-23T05:00:00Z'),collected=0;const removed=[];
-  const svc=createAnalysisService({read:rd,save:sv,clock:()=>t,get:async()=>({}),refreshMinutes:60,keepRefreshRuns:2,remove:n=>removed.push(n),attachSegments:p=>p,
+  const svc=createAnalysisService({backfill:false,read:rd,save:sv,clock:()=>t,get:async()=>({}),refreshMinutes:60,keepRefreshRuns:2,remove:n=>removed.push(n),attachSegments:p=>p,
     collectSelection:async sel=>{collected++;return {posts:[{id:'youtube:x'+collected,video_id:sel[0].video_ids[0],author_ref:'h',content_kind:'comment',created_at:t.toISOString(),text:'refresh '+collected,metrics:{}}],videos:[{id:'abcdefghijk',title:'V'}],warnings:[]};},
     discover:async()=>{throw new Error('search must not run during a refresh');},
     worker:async(action,{posts})=>action==='analyze'?posts.map(p=>({...p,nlp_row:{post_id:p.id},sentiment:{label:'neutral',score:0}})):{posts:posts.map(p=>({...p,topic_source:'Embedding clusters',topic_id:0,topic:'T'})),status:'ok'},
@@ -59,7 +59,7 @@ console.log('URL validation, API sampling, scoped history, lock/live scheduling,
   const rd=(n,f)=>structuredClone(mem.has(n)?mem.get(n):f),sv=(n,v)=>mem.set(n,structuredClone(v));
   let stopped=0,release;const gate=new Promise(r=>release=r);
   const post=(id,text)=>({id,video_id:'abcdefghijk',author_ref:'h',content_kind:'comment',created_at:'2026-09-23T05:00:00Z',text,metrics:{}});
-  const svc=createAnalysisService({read:rd,save:sv,clock:()=>new Date('2026-09-23T05:00:00Z'),get:async()=>({}),refreshMinutes:60,attachSegments:p=>p,stopWorker:()=>{stopped++;release();},
+  const svc=createAnalysisService({backfill:false,read:rd,save:sv,clock:()=>new Date('2026-09-23T05:00:00Z'),get:async()=>({}),refreshMinutes:60,attachSegments:p=>p,stopWorker:()=>{stopped++;release();},
     collectSelection:async()=>({posts:[post('youtube:t1','trend')],videos:[{id:'abcdefghijk',title:'V'}],warnings:[]}),
     collect:async()=>({posts:[post('youtube:u1','user link')],videos:[{id:'abcdefghijk',title:'Mine'}],warnings:[]}),
     worker:async(action,{posts})=>{if(action==='analyze'&&posts[0].id==='youtube:t1'){await gate;throw new Error('NLP worker stopped');}return action==='analyze'?posts.map(p=>({...p,nlp_row:{post_id:p.id},sentiment:{label:'neutral',score:0}})):{posts:posts.map(p=>({...p,topic_source:'Embedding clusters',topic_id:0,topic:'T'})),status:'ok'};},
@@ -69,4 +69,17 @@ console.log('URL validation, API sampling, scoped history, lock/live scheduling,
   for(let i=0;i<200&&svc.status().busy;i++)await new Promise(r=>setTimeout(r,5));
   const runs=svc.status().runs;assert.equal(runs.find(r=>r.mode==='trending').status,'cancelled');assert.ok(['complete','partial'].includes(runs.find(r=>r.id===mine.run_id).status),'user link finished');
   console.log('User link pre-empts background refresh checks passed.');
+}
+{
+  // Saved analyses get audience estimates (incl. state) automatically when the server is idle.
+  const mem=new Map([['analysis-index',{runs:[{id:'old',mode:'manual',status:'complete',source_key:'video:x',started_at:'2026-09-20T00:00:00Z',completed_at:'2026-09-20T00:05:00Z',warnings:[]}],live:{enabled:false},discovery:{enabled:false,auto_default:true,runs:[],budgets:{},snapshots:{},channels:{}}}],
+    ['analysis-old',{run:{id:'old'},posts:[{id:'c1',content_kind:'comment',text:'hello'},{id:'c2',content_kind:'comment',text:'vanakkam'}]}]]);
+  const rd=(n,f)=>structuredClone(mem.has(n)?mem.get(n):f),sv=(n,v)=>mem.set(n,structuredClone(v));
+  let calls=0;const done=new Set();
+  const svc=createAnalysisService({read:rd,save:sv,clock:()=>new Date('2026-09-26T10:00:00Z'),get:async()=>({}),
+    attachSegments:posts=>posts.map(p=>done.has(p.id)?{...p,estimate:{state:'Tamil Nadu'}}:p),
+    segmentPosts:async posts=>{calls++;for(const p of posts)done.add(p.id);return {estimated:posts.length,total:posts.length,warnings:[]};}});
+  svc.tick();for(let i=0;i<100&&svc.status().busy;i++)await new Promise(r=>setTimeout(r,5));
+  assert.equal(calls,1,'backfill ran for the saved analysis');svc.tick();await new Promise(r=>setTimeout(r,20));assert.equal(calls,1,'no repeat once complete');
+  console.log('Automatic audience-estimate backfill checks passed.');
 }
