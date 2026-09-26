@@ -83,7 +83,9 @@ function participationView(p){
     +'<h4>When they comment (IST)</h4>'+bars(time,time.reduce((a,b)=>a+b.value,0),'#7be8c0');
 }
 function segmentsView(s){
-  if(!s){$('#segments').innerHTML='';return;}
+  // Hidden unless at least one self-described group is large enough to show; the other boxes widen to fill the row.
+  const box=$('#segments'),show=Boolean(s?.segments?.length);box.hidden=!show;box.parentElement.classList.toggle('box-grid-2',!show);
+  if(!show){box.innerHTML='';return;}
   const head='<h4>Audience segments <small class="muted">· from self-descriptions</small></h4>';
   if(s.status==='not_estimated'||s.pending){
     $('#segments').innerHTML=head+(s.estimated?bars(s.segments.map(g=>({label:g.label,value:g.count})),s.classified||1,'#eecb7c'):'')+'<p class="footnote">Estimating '+s.pending+' comment'+(s.pending===1?'':'s')+' in the background…</p>';

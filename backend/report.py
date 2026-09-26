@@ -305,9 +305,13 @@ if seg.get('estimated'):
                       + (f" {seg['hidden_groups']} small group(s) hidden." if seg.get('hidden_groups') else ''), 'small'))
 else:
     seg_body.append(P('Not estimated for this analysis yet.', 'small'))
-story.append(row_of([card('Participation', part_card, box_width(3)),
-                     card('Languages', [bars([(LANG.get(k, k), v) for k, v in langs], bw3, VIOLET, total=comments)], box_width(3)),
-                     card('Audience segments', seg_body, box_width(3))]))
+if seg.get('segments'):
+    story.append(row_of([card('Participation', part_card, box_width(3)),
+                         card('Languages', [bars([(LANG.get(k, k), v) for k, v in langs], bw3, VIOLET, total=comments)], box_width(3)),
+                         card('Audience segments', seg_body, box_width(3))]))
+else:  # no self-described group large enough to show: leave the box out
+    story.append(row_of([card('Participation', part_card, box_width(2)),
+                         card('Languages', [bars([(LANG.get(k, k), v) for k, v in langs], box_width(2) - 18, VIOLET, total=comments)], box_width(2))]))
 story.append(Spacer(1, 10))
 
 report, est = data.get('audienceReport'), data.get('audienceEstimates') or {}
