@@ -102,8 +102,9 @@ function audienceView(data){
     if(!e||e.status==='not_estimated'){$('#demographics').innerHTML='<div class="demo-head"><h4>Age, gender &amp; country</h4></div><div class="demographic-grid">'+['Age','Gender','Country'].map(label=>'<div><span>'+label+'</span><strong>Not estimated yet</strong></div>').join('')+'</div><p class="footnote">Press <b>Estimate audience</b> above for an AI estimate, or import real YouTube Studio data below.</p>';return;}
     const block=(title,d,fmt=x=>x)=>'<h4>'+title+'</h4>'+(d.rows.length?bars(d.rows.map(x=>({label:fmt(x.label),value:x.count})),d.total,'#83baff'):'<p class="footnote">No group large enough to show.</p>')+'<p class="footnote">'+d.unclear+' unclear'+(d.hidden?' · '+d.hidden+' small group'+(d.hidden===1?'':'s')+' hidden':'')+'</p>';
     $('#demographics').innerHTML='<div class="demo-head"><h4>Age, gender &amp; country <span class="estimate-tag">'+esc(e.label)+'</span></h4><p class="demo-source">'+e.estimated+' comments · average confidence '+(e.confidence??'—')+(e.pending?' · '+e.pending+' pending':'')+'</p></div>'
-      +'<div class="box-grid"><div class="box">'+block('Age',e.dimensions.age)+'</div><div class="box">'+block('Gender',e.dimensions.gender)+'</div><div class="box">'+block('Country',e.dimensions.region,regionName)+'</div></div>'
+      +'<div class="box-grid box-grid-4"><div class="box">'+block('Age',e.dimensions.age)+'</div><div class="box">'+block('Gender',e.dimensions.gender)+'</div><div class="box">'+block('Country',e.dimensions.region,regionName)+'</div><div class="box">'+(e.dimensions.state?block('State / region (India)',e.dimensions.state):'<h4>State / region (India)</h4>')+'</div></div>'+(e.stale?'<p class="footnote">State breakdown missing for '+e.stale+' comments. <button id="estimateState">Add state breakdown</button></p>':'')
       +'<p class="footnote">'+esc(e.note)+' Import YouTube Studio data below for real figures.</p>';
+    $('#estimateState')?.addEventListener('click',async ev=>{ev.target.disabled=true;ev.target.textContent='Estimating…';try{await post('/api/segments/refresh',{run:$('#runSelect').value});await refreshDashboard();}catch(err){ev.target.disabled=false;ev.target.textContent=err.message;}});
     return;
   }
   const source=r.source==='youtube_analytics'?'YouTube Studio analytics':'Voluntary survey';
@@ -224,7 +225,9 @@ $('#chatForm').addEventListener('submit',async e=>{
   e.preventDefault();const question=$('#chatInput').value.trim();if(!question||$('#chatSend').disabled)return;
   bubble('user',question);$('#chatInput').value='';$('#chatSend').disabled=true;const pending=bubble('bot','Reading your analysis…');
   try{const r=await post('/api/chat',{question,history,...scope()});pending.textContent=r.answer;
-    for(const [i,url] of [...new Set(r.evidence)].filter(safeURL).entries()){const link=document.createElement('a');link.href=safeURL(url);link.textContent=`Source ${i+1} ↗`;link.target='_blank';link.rel='noreferrer';link.className='chat-source';pending.appendChild(link);}
+    const urls=[...new Set(r.evidence)].filter(safeURL); // show a handful of sources, not dozens
+    for(const [i,url] of urls.slice(0,6).entries()){const link=document.createElement('a');link.href=safeURL(url);link.textContent=`Source ${i+1} ↗`;link.target='_blank';link.rel='noreferrer';link.className='chat-source';pending.appendChild(link);}
+    if(urls.length>6){const more=document.createElement('small');more.className='chat-source';more.textContent=`+${urls.length-6} more`;pending.appendChild(more);}
     history.push({role:'user',content:question},{role:'assistant',content:r.answer});
   }catch(error){pending.textContent=error.message;}finally{$('#chatSend').disabled=false;$('#chatInput').focus();$('#chatLog').scrollTop=$('#chatLog').scrollHeight;}
 });

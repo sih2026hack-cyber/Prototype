@@ -325,13 +325,16 @@ elif est.get('estimated'):
                    + est.get('note', ''), 'small'))
     story.append(Spacer(1, 4))
     boxes = []
-    for key, title in (('age', 'Age'), ('gender', 'Gender'), ('region', 'Country')):
-        dim = est['dimensions'][key]
+    for key, title in (('age', 'Age'), ('gender', 'Gender'), ('region', 'Country'), ('state', 'State / region (India)')):
+        dim = est['dimensions'].get(key)
+        if not dim:
+            continue
         body = [bars([(COUNTRY.get(r['label'], r['label']) if key == 'region' else r['label'], r['count']) for r in dim['rows']],
-                     bw3, BLUE, total=dim['total'] or None, empty='No group large enough to show.'),
+                     box_width(2) - 18, BLUE, total=dim['total'] or None, empty='No group large enough to show.'),
                 P(f"{dim['unclear']} unclear" + (f" · {dim['hidden']} small group(s) hidden" if dim.get('hidden') else ''), 'small')]
-        boxes.append(card(title, body, box_width(3), tag='AI estimate · low confidence'))
-    story.append(row_of(boxes))
+        boxes.append(card(title, body, box_width(2), tag='AI estimate · low confidence'))
+    for i in range(0, len(boxes), 2):
+        story += [row_of(boxes[i:i + 2]), Spacer(1, 8)]
 else:
     story.append(P('Age, gender and country: not available for this analysis. Estimate them in the dashboard or import YouTube Studio data.', 'small'))
 

@@ -48,7 +48,9 @@ import {validateEstimate,aggregateEstimates} from '../lib/segments.mjs';
   eq(validateEstimate({age_band:'18-24',gender:'female',region:'in',estimate_confidence:.6}).region,'IN');
   eq(validateEstimate({age_band:'18-24',estimate_confidence:.2}).age,null);
   eq(validateEstimate({age_band:'toddler',gender:'hindu',estimate_confidence:.9}).gender,null);
-  const e=aggregateEstimates([{estimate:{age:'18-24',gender:'male',region:'IN',confidence:.6}},{estimate:{age:'18-24',gender:null,region:'IN',confidence:.5}},{estimate:{age:'45+',gender:'male',region:null,confidence:.5}},{}]);
+  const e=aggregateEstimates([{estimate:{age:'18-24',gender:'male',region:'IN',state:'Karnataka',confidence:.6}},{estimate:{age:'18-24',gender:null,region:'IN',state:'Karnataka',confidence:.5}},{estimate:{age:'45+',gender:'male',region:null,state:null,confidence:.5}},{}]);
+  eq(e.dimensions.state.rows[0].label,'Karnataka');eq(e.dimensions.state.rows[0].count,2);eq(aggregateEstimates([{estimate:{age:'18-24',confidence:.5}}]).stale,1);
+  eq(validateEstimate({region:'IN',state:'tamil nadu',estimate_confidence:.6}).state,'Tamil Nadu');eq(validateEstimate({region:'IN',state:'Atlantis',estimate_confidence:.6}).state,null);
   eq(e.dimensions.age.rows.length,1);eq(e.dimensions.age.hidden,1);eq(e.dimensions.gender.rows[0].count,2);eq(e.dimensions.gender.unclear,1);eq(e.pending,1);eq(e.label,'AI estimate · low confidence');
   console.log('AI audience estimate checks passed.');
 }
