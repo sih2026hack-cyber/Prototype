@@ -166,7 +166,7 @@ function render(data){
 async function refreshDashboard(){
   if(loading)return;loading=true;const version=generation;
   try{
-    const status=await api('/api/analysis/status'),finished=status.runs.filter(r=>['complete','partial'].includes(r.status));let selected=$('#runSelect').value;
+    const status=await api('/api/analysis/status'),finished=status.runs.filter(r=>['complete','partial'].includes(r.status)&&!(r.record_count!=null&&r.record_count<=(r.video_ids?.length||1)));let selected=$('#runSelect').value;
     if(pendingRun){const r=status.runs.find(r=>r.id===pendingRun);if(r&&['complete','partial'].includes(r.status)){selected=pendingRun;pendingRun='';history.length=0;}else if(r?.status==='failed'){pendingRun='';$('#ingestStatus').textContent=r.message;}}
     if(!finished.some(r=>r.id===selected))selected=finished[0]?.id||'';
     // Follow automatic refreshes: jump to the newest finished run of the same source.
@@ -177,7 +177,7 @@ async function refreshDashboard(){
     $('#liveToggle').checked=!!status.live.enabled;$('#liveToggle').disabled=!selected||status.busy;
     const last=status.runs[0];
     const mine=pendingRun&&status.runs.find(r=>r.id===pendingRun);
-    $('#ingestStatus').textContent=mine&&['queued','running'].includes(mine.status)?(mine.status==='queued'?'Starting your link…':'Analysing your link: '+(status.job?.message||'working…')):status.busy?'Background refresh running: '+(status.job?.message||''):last?.status==='failed'?(mine?.id===last.id?'Your link could not be analysed: ':'Refresh failed: ')+(last.message||'previous results retained'):'Ready';
+    $('#ingestStatus').textContent=mine&&['queued','running'].includes(mine.status)?(mine.status==='queued'?'Starting your link…':'Analysing your link: '+(status.job?.message||'working…')):status.busy?'Background refresh running: '+(status.job?.message||''):last?.status==='failed'&&Date.now()-new Date(last.updated_at||last.started_at)<120000?(mine?.id===last.id?'Your link could not be analysed: ':'Refresh failed: ')+(last.message||'previous results retained'):'Ready';
     if(selected){const data=await api('/api/view?'+query());if(version!==generation)return;render(data);$('#updatedAt').textContent='Collected '+new Date(data.run.completed_at).toLocaleString();if(!status.busy&&last?.status!=='failed')$('#ingestStatus').textContent=data.run.warnings.length?'Partial results · see report':'Ready';}
     const d=await api('/api/discovery/status');if(version!==generation)return;$('#discoveryToggle').checked=d.enabled;
     $('#discoveryStatus').textContent=(d.stale?'Previous sources may be stale. ':'')+(d.enabled&&d.next_refresh_at?'Comments refresh every '+d.refresh_minutes+' min (next '+new Date(d.next_refresh_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'). ':'')+'New channels picked daily at 9 AM IST · '+d.budget.search+'/20 searches today.';
