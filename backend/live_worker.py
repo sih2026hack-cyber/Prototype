@@ -98,11 +98,11 @@ def embedding_model():
         try:
             from sentence_transformers import SentenceTransformer
             embedder = SentenceTransformer(model_path, cache_folder=model_cache, local_files_only=local_only)
-        except ImportError as exc:
+        except (ImportError, OSError) as exc:  # OSError: DLL blocked by Windows Application Control
             try:
                 embedder = TransformersEmbedder(model_path, model_cache, local_only)
                 print('sentence-transformers unavailable (%s); using transformers mean pooling.' % exc, file=sys.stderr)
-            except ImportError:
+            except (ImportError, OSError):
                 if not os.environ.get('HF_TOKEN'):
                     raise RuntimeError('No local embedding model and HF_TOKEN is not set.')
                 print('No local torch; using the Hugging Face Inference API for embeddings.', file=sys.stderr)
@@ -110,6 +110,20 @@ def embedding_model():
     return embedder
 
 STOPWORDS = set("""a about above after again against all am an and any are as at be because been before being below between both but by can could did do does doing down during each few for from further had has have having he her here hers him his how i if in into is it its itself just me more most my no nor not now of off on once only or other our out over own same she should so some such than that the their them then there these they this those through to too under until up very was we were what when where which while who whom why will with would you your yours also get got like one really even still much many well yes oh ok bro sir""".split())
+
+def ngram_vectors(texts, dims=384):
+    """Hashed character 3-grams per word, sublinear tf-idf, L2-normalised. Numpy only."""
+    import numpy as np, zlib
+    rows = np.zeros((len(texts), dims), dtype='float32')
+    for r, text in enumerate(texts):
+        for word in re.findall(r'\w+', text.lower()):
+            if word in STOPWORDS or len(word) < 3:
+                continue
+            padded = '<' + word + '>'
+            for k in range(len(padded) - 2):
+                rows[r, zlib.crc32(padded[k:k+3].encode('utf-8')) % dims] += 1
+    rows = np.log1p(rows) * np.log((1 + len(texts)) / (1 + (rows > 0).sum(0)) + 1)
+    return rows / np.maximum(np.linalg.norm(rows, axis=1, keepdims=True), 1e-9)
 
 def fallback_clusters(texts, vectors, min_size=3, threshold=0.5):
     """Pure-numpy topic discovery for when BERTopic/scikit-learn cannot load:
@@ -172,13 +186,31 @@ def topics(posts):
     import numpy as np
     hashes = [hashlib.sha256(text.encode('utf-8')).hexdigest() for text in texts]
     missing = [i for i,p in enumerate(posts) if len(p.get('embedding') or []) != 384 or p.get('embedding_source') != embedding_name or p.get('embedding_text_hash') != hashes[i]]
-    if missing:
-        encoded = embedding_model().encode([texts[i] for i in missing], normalize_embeddings=True, show_progress_bar=False)
-        for i, vector in zip(missing, encoded):
-            posts[i]['embedding'] = vector.tolist()
-            posts[i]['embedding_source'] = embedding_name
-            posts[i]['embedding_text_hash'] = hashes[i]
-    vectors = np.asarray([p['embedding'] for p in posts])
+    try:
+        if missing:
+            encoded = embedding_model().encode([texts[i] for i in missing], normalize_embeddings=True, show_progress_bar=False)
+            for i, vector in zip(missing, encoded):
+                posts[i]['embedding'] = vector.tolist()
+                posts[i]['embedding_source'] = embedding_name
+                posts[i]['embedding_text_hash'] = hashes[i]
+        vectors = np.asarray([p['embedding'] for p in posts])
+        threshold = 0.5
+    except RuntimeError as exc:
+        # No torch and no HF_TOKEN: cluster on hashed character n-grams so topics still appear.
+        # These vectors are not stored, so a real embedding model replaces them on the next run.
+        print('Embeddings unavailable (%s); clustering on character n-grams.' % exc, file=sys.stderr)
+        vectors, threshold = ngram_vectors(texts), 0.3
+        if len(posts) >= 5:
+            ids, probabilities, keywords = fallback_clusters(texts, vectors, threshold=threshold)
+            for post in posts:
+                for field in ['topic', 'topic_id', 'topic_source', 'topic_probability', 'topic_summary']:
+                    post.pop(field, None)
+            for post, topic_id, probability in zip(posts, ids, probabilities):
+                post['topic'] = 'Unclustered / outliers' if topic_id == -1 else (' · '.join(keywords.get(topic_id) or []) or f'Topic {topic_id + 1} (keywords unavailable)')
+                post['topic_id'] = int(topic_id)
+                post['topic_source'] = 'Embedding clusters'
+                post['topic_probability'] = float(probability) if topic_id != -1 else None
+            return {'posts': posts, 'status': 'Topics used keyword (character n-gram) clustering: no embedding model on this PC (PyTorch blocked by Windows Application Control, HF_TOKEN not set).'}
     for post in posts:
         for field in ['topic', 'topic_id', 'topic_source', 'topic_probability', 'topic_summary']:
             post.pop(field, None)
@@ -189,7 +221,7 @@ def topics(posts):
         from sklearn.decomposition import PCA
         from sklearn.cluster import HDBSCAN
         from sklearn.feature_extraction.text import CountVectorizer
-    except ImportError as exc:
+    except (ImportError, OSError) as exc:
         print('BERTopic unavailable (%s); using embedding community fallback.' % exc, file=sys.stderr)
         ids, probabilities, keywords = fallback_clusters(texts, vectors)
         for post, topic_id, probability in zip(posts, ids, probabilities):

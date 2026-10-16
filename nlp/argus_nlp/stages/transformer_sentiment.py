@@ -82,7 +82,7 @@ class TransformerScorer:
                     AutoModelForSequenceClassification,
                     AutoTokenizer,
                 )
-            except ImportError as exc:
+            except (ImportError, OSError) as exc:          # OSError: DLL blocked by Windows Application Control
                 log.warning(
                     "transformer tier unavailable (%s); falling back to VADER. "
                     "pip install torch transformers to enable it.", exc
