@@ -231,25 +231,6 @@ $('#chatForm').addEventListener('submit',async e=>{
     history.push({role:'user',content:question},{role:'assistant',content:r.answer});
   }catch(error){pending.textContent=error.message;}finally{$('#chatSend').disabled=false;$('#chatInput').focus();$('#chatLog').scrollTop=$('#chatLog').scrollHeight;}
 });
-let previewTimer,aiTimer,revision=0,inFlight=false,lastChecked='',latestSuggestion=null;
-function showModeration(result,preview=false){
-  $('#pluginResult').dataset.risk=result.verdict;
-  const names={high_risk:'High risk · threat warning',review:'Review suggested',safe:'Checked',unchecked:'Local preview'};
-  $('#pluginResult').innerHTML=`<strong>${esc(names[result.verdict]||result.verdict)}</strong><p>${esc(result.reason||'')}</p>${result.corrected_text?`<p>Suggestion: ${esc(result.corrected_text)}</p>`:''}${result.warning?`<p>${esc(result.warning)}</p>`:''}${!preview&&result.note?`<p class="footnote">${esc(result.note)}</p>`:''}${!preview&&result.complete&&result.corrected_text?'<button id="acceptSuggestion">Use suggestion</button>':''}`;
-  if(!preview){latestSuggestion=result;$('#acceptSuggestion')?.addEventListener('click',async()=>{try{const r=await post('/api/plugin/accept',{id:latestSuggestion.id});$('#draftText').value=r.text;revision++;lastChecked=r.text;$('#pluginStatus').textContent=`Suggestion accepted · ${r.storage}`;}catch(error){$('#pluginStatus').textContent=error.message;}});}
-}
-async function checkDraft(){
-  clearTimeout(aiTimer);const text=$('#draftText').value.trim(),version=revision;
-  if(!text||text===lastChecked)return;if(inFlight){aiTimer=setTimeout(checkDraft,1500);return;}
-  inFlight=true;$('#checkDraft').disabled=true;$('#pluginStatus').textContent='Checking your draft…';
-  try{const result=await post('/api/plugin/check',{text});lastChecked=text;if(version===revision){showModeration(result);$('#pluginStatus').textContent=`${result.complete?'AI check':'Local check'} saved · ${result.storage}`;}}
-  catch(error){if(version===revision)$('#pluginStatus').textContent=error.message;}finally{inFlight=false;$('#checkDraft').disabled=false;if(version!==revision&&$('#draftText').value.trim())aiTimer=setTimeout(checkDraft,1800);}
-}
-$('#draftText').addEventListener('input',()=>{
-  revision++;const version=revision,text=$('#draftText').value.trim();clearTimeout(previewTimer);clearTimeout(aiTimer);
-  $('#pluginResult').textContent='';$('#pluginStatus').textContent=text?'Checking your draft as you type…':'Type a draft to begin.';if(!text)return;
-  previewTimer=setTimeout(async()=>{try{const r=await post('/api/plugin/preview',{text});if(version===revision)showModeration(r,true);}catch{}},200);
-  aiTimer=setTimeout(checkDraft,1800);
-});
-$('#checkDraft').addEventListener('click',()=>{lastChecked='';checkDraft();});
+// Writing plugin: ai-moderator-plugin/widget, served from /plugin.
+AIModerator.mount($('#moderatorBox'),{endpoint:'/api/plugin',placeholder:'Try a draft here. ARGUS will check it as you write…'});
 refreshDashboard();setInterval(()=>{if(!document.hidden)refreshDashboard();},4000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshDashboard();});

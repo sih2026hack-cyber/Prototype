@@ -14,4 +14,4 @@ ARGUS_MODEL_CACHE uses a short workspace path because Windows model-download pat
 
 Supabase posts_nlp is already available in the configured project. A project owner must run supabase/live-extension.sql to create source metadata, vector, chat-evidence and moderator-history storage. Until then, these extra results remain in the local runtime cache; the dashboard reports metadata as pending. The service-role key provides API access but does not grant your account access to the Supabase dashboard.
 
-The moderator is an optional composer plugin at the bottom of the dashboard. It reuses scoring prompts from E:/AI Moderator and never posts a message externally.
+The moderator is the always-open writing plugin on the dashboard. Its code is self-contained in `ai-moderator-plugin/` (engine, API routes, UI widget, demo; see its README) so it can be copied into other projects. It reuses the AI Moderator scoring prompts and never posts a message externally.

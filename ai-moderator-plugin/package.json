@@ -1,0 +1,19 @@
+{
+  "name": "ai-moderator-plugin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Writing moderator: instant threat/hostility check plus a MiniMax review that suggests safer, clearer rewrites.",
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./widget/*": "./widget/*"
+  },
+  "scripts": {
+    "demo": "node demo/server.mjs",
+    "test": "node test/test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

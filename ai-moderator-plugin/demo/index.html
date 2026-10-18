@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Moderator demo</title>
+<link rel="stylesheet" href="/moderator-widget.css">
+<style>body{margin:0;background:#0b1118;color:#edf3fa;font:15px/1.6 Inter,'Segoe UI',system-ui,sans-serif}main{max-width:720px;margin:48px auto;padding:0 16px}h1{font-size:22px;margin:0 0 4px}p{color:#9cabbc;margin:0 0 20px}</style>
+</head>
+<body>
+<main>
+  <h1>A little clarity before you post.</h1>
+  <p>Grammar and safety suggestions as you type.</p>
+  <div id="moderator"></div>
+</main>
+<script src="/moderator-widget.js"></script>
+<script>AIModerator.mount(document.querySelector('#moderator'), { endpoint: '/api/plugin' });</script>
+</body>
+</html>

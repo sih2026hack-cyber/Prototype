@@ -7,14 +7,16 @@ import {readLocal,saveLocal,upsert,restoreState} from './lib/storage.mjs';
 import {ServiceError} from './lib/providers.mjs';
 const restored=await restoreState(); // must run before any module reads runtime state
 if(restored)console.log(`Restored ${restored} state files from Supabase`);
-import {moderate,inspectDraft} from './lib/moderation.mjs';
+import {moderator} from './lib/moderation.mjs';
+import {createModeratorService} from './ai-moderator-plugin/src/index.mjs';
 import {redact} from './lib/privacy.mjs';
 import {chat} from './lib/chat.mjs';
 import {aggregate,civicEntities} from './lib/analytics.mjs';
 import {createAnalysisService} from './lib/analysis-service.mjs';
 import {reportPDF} from './lib/report.mjs';
 const service=createAnalysisService();
-const decisions=readLocal('moderation',[]);
+// Writing moderator (ai-moderator-plugin/): decisions are kept locally and mirrored to Supabase.
+const plugin=createModeratorService({moderator,decisions:readLocal('moderation',[]),persist:async(item,decisions)=>{let storage;try{await upsert('moderation_logs',[{id:item.id,created_at:item.created_at,payload:item}],'id');storage='Supabase + local';}catch{storage='Local only - cloud sync needed';}saveLocal('moderation',decisions.slice(0,300));return storage;}});
 // Local: only localhost. Public (Render): its hostname, behind HTTP Basic Auth.
 const localHosts=[`localhost:${settings.port}`,`127.0.0.1:${settings.port}`];
 const allowedHost=h=>localHosts.includes(h)||server.hosts.includes(String(h||'').toLowerCase().replace(/:\d+$/,''));
@@ -31,7 +33,6 @@ function authorized(req){
 function json(res,value,code=200){res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));}
 async function body(req){let value='';for await(const chunk of req){value+=chunk;if(value.length>24000)throw new ServiceError('Request too large.',413);}try{return JSON.parse(value||'{}');}catch{throw new ServiceError('Invalid JSON.',400);}}
 function textInput(value,max=4000){if(typeof value!=='string'||!value.trim()||value.length>max)throw new ServiceError('Enter a nonempty value within the allowed length.',400);return redact(value.trim());}
-async function saveDecision(item){try{await upsert('moderation_logs',[{id:item.id,created_at:item.created_at,payload:item}],'id');item.storage='Supabase + local';}catch{item.storage='Local only - cloud sync needed';}saveLocal('moderation',decisions.slice(0,300));return item.storage;}
 const filters=url=>Object.fromEntries(['run','from','to','group'].map(k=>[k,url.searchParams.get(k)||'']));
 async function api(req,res,url){
   const route=url.pathname;
@@ -40,7 +41,7 @@ async function api(req,res,url){
     if(route==='/api/analysis/runs'||route==='/api/analysis/status')return json(res,service.status());
     if(route==='/api/discovery/status')return json(res,service.discoveryStatus());
     if(route==='/api/channels'){const status=service.discoveryStatus();const run=url.searchParams.get('run');return json(res,{channels:run?service.view({run}).run.selection||[]:status.selection,stale:status.stale});}
-    if(route==='/api/plugin/decisions'||route==='/moderate/analytics')return json(res,{enabled:true,decisions:decisions.slice(0,30)});
+    if(route==='/api/plugin/decisions'||route==='/moderate/analytics')return json(res,{enabled:true,decisions:plugin.recent()});
     const params=filters(url);params.group||='combined';
     if(['/api/view','/api/report.pdf','/api/network','/api/overview','/api/sentiment','/api/topics','/api/entities','/api/audience','/api/posts','/api/videos','/api/pipeline'].includes(route)){
       const {posts,run,data}=service.view(params);
@@ -72,13 +73,13 @@ async function api(req,res,url){
       const context={run:{id:run.id,label:run.label,collection:run.completed_at},filters:data.filters,topics:data.topics,emotions:data.emotions,audience:data.audienceReport,audienceSegments:data.audienceSegments,audienceEstimates:data.audienceEstimates,participation:data.participation,network:{leaders:data.network.leaders,limits:data.network.limitations},growth:data.growth,selection:run.selection||[],limitations:data.limitations};
       return json(res,await chat(textInput(input.question),input.history,posts,run,context));
     }
-    if(route==='/api/plugin/preview')return json(res,inspectDraft(textInput(input.text,2000)));
-    if(['/api/plugin/check','/moderate','/moderate/rewrite'].includes(route)){const text=textInput(input.text,2000),result=await moderate(text);const item={...result,id:crypto.randomUUID(),original_text:text,created_at:new Date().toISOString(),accepted:false};decisions.unshift(item);item.storage=await saveDecision(item);return json(res,item);}
-    if(route==='/api/plugin/accept'){const item=decisions.find(x=>x.id===input.id);if(!item?.corrected_text||!item.complete)throw new ServiceError('No verified suggestion to accept.',400);item.accepted=true;item.accepted_at=new Date().toISOString();item.storage=await saveDecision(item);return json(res,{text:item.corrected_text,storage:item.storage});}
+    if(route==='/api/plugin/preview')return json(res,plugin.preview(input.text));
+    if(['/api/plugin/check','/moderate','/moderate/rewrite'].includes(route))return json(res,await plugin.check(input.text));
+    if(route==='/api/plugin/accept')return json(res,await plugin.accept(input.id));
   }
   return json(res,{error:'Not found'},404);
 }
-const assets=new Map([['/',['frontend/index.html','text/html']],['/frontend/index.html',['frontend/index.html','text/html']],['/frontend/app.js',['frontend/dashboard.js','text/javascript']],['/frontend/styles.css',['frontend/styles.css','text/css']],['/frontend/chat.css',['frontend/chat.css','text/css']],['/setup.sql',['supabase/live-extension.sql','text/plain']]]);
+const assets=new Map([['/plugin/moderator-widget.js',['ai-moderator-plugin/widget/moderator-widget.js','text/javascript']],['/plugin/moderator-widget.css',['ai-moderator-plugin/widget/moderator-widget.css','text/css']],['/',['frontend/index.html','text/html']],['/frontend/index.html',['frontend/index.html','text/html']],['/frontend/app.js',['frontend/dashboard.js','text/javascript']],['/frontend/styles.css',['frontend/styles.css','text/css']],['/frontend/chat.css',['frontend/chat.css','text/css']],['/setup.sql',['supabase/live-extension.sql','text/plain']]]);
 assets.set('/frontend/insights.css',['frontend/insights.css','text/css']);
 http.createServer(async(req,res)=>{
   try{
