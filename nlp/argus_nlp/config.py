@@ -33,8 +33,9 @@ class LLMSettings:
     swapping provider is a config change, not a rewrite (see plan C10)."""
 
     api_key: str | None = None
-    base_url: str = "https://api.minimax.io/v1/text/chatcompletion_v2"
-    model: str = "MiniMax-Text-01"
+    base_url: str = "https://api.minimax.io/v1/chat/completions"
+    # MiniMax-Text-01 was retired (Nov 2026: "model is no longer available").
+    model: str = "MiniMax-M3"
     # 30s was too tight once the prompt asked for event fields as well: a
     # 10-post batch runs ~830 completion tokens and takes ~40s, so every call
     # timed out, burned its retries, and 51 of 112 escalated posts silently

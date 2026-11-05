@@ -19,7 +19,7 @@ services:
       - key: MINIMAX_API_KEY
         sync: false
       - key: MINIMAX_MODEL
-        value: MiniMax-Text-01
+        value: MiniMax-M3
       - key: NEBIUS_API_KEY          # comment moderator: Nemotron while credits last, then MiniMax
         sync: false
       - key: NEBIUS_CREDIT_USD       # remaining Nebius credit in US$; Nemotron stops at this

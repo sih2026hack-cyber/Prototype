@@ -20,8 +20,8 @@ llm:
   enabled: true
   # international accounts: api.minimax.io (or api.minimaxi.chat)
   # China accounts:         api.minimax.chat
-  base_url: https://api.minimax.io/v1/text/chatcompletion_v2
-  model: MiniMax-Text-01
+  base_url: https://api.minimax.io/v1/chat/completions
+  model: MiniMax-M3
   timeout_s: 120
   max_retries: 3
   batch_size: 10          # posts per API call

@@ -290,6 +290,8 @@ class MiniMaxClient:
             ],
             "temperature": 0.1,
             "max_tokens": self.settings.max_tokens,
+            # MiniMax-M3 reasons first; keep that out of the answer text.
+            "reasoning_split": True,
         }
         headers = {
             "Authorization": f"Bearer {self.settings.api_key}",
@@ -372,7 +374,9 @@ class MiniMaxClient:
                 continue
 
             try:
-                return body["choices"][0]["message"]["content"]
+                content = body["choices"][0]["message"]["content"]
+                # A reasoning model may still inline its reasoning; it is not the answer.
+                return re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
             except (KeyError, IndexError, TypeError) as exc:
                 log.warning("unexpected LLM response shape: %s (body=%.200s)", exc, body)
                 return None

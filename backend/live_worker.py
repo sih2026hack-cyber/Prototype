@@ -92,7 +92,10 @@ def embedding_model():
     global embedder
     if embedder is None:
         model_cache = os.environ.get('ARGUS_MODEL_CACHE', str(Path(os.environ['ARGUS_RUNTIME']) / 'models'))
-        local_model = Path(__file__).resolve().parents[3] / 'work' / 'multilingual-model'
+        # A model folder kept beside the team's workspace, when ARGUS sits deep enough to have one
+        # (at a shallow path such as E:\SIH there is no parents[3]).
+        parents = Path(__file__).resolve().parents
+        local_model = parents[3] / 'work' / 'multilingual-model' if len(parents) > 3 else Path(__file__).resolve().parent / 'missing-model'
         model_path = os.environ.get('ARGUS_EMBEDDING_PATH') or (str(local_model) if (local_model / 'model.safetensors').exists() else embedding_name)
         local_only = Path(model_path).is_dir()
         try:
