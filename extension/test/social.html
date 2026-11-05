@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Argus test bench: Instagram + WhatsApp</title>
+<style>
+  body { font: 15px/1.5 'Segoe UI', system-ui, sans-serif; max-width: 640px; margin: 32px auto; padding: 0 16px; color: #15171c; }
+  section { border: 1px solid #e3e6eb; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  h2 { font-size: 15px; margin: 0 0 8px; }
+  textarea, [contenteditable] { display: block; width: 100%; box-sizing: border-box; min-height: 40px; border: 1px solid #ccc; border-radius: 8px; padding: 8px; margin-bottom: 8px; font: inherit; }
+  [role="button"] { display: inline-block; color: #0095f6; font-weight: 600; cursor: pointer; }
+  #posted { background: #f6f7f9; border-radius: 12px; padding: 12px; }
+</style>
+</head>
+<body>
+  <h1 style="font-size:20px">Local copies of Instagram's comment box and WhatsApp Web's message box</h1>
+  <p>Open with <code>?site=instagram</code> or <code>?site=whatsapp</code> (add <code>&amp;whatsapp=on</code> to switch WhatsApp checking on). Enter sends on both.</p>
+
+  <section>
+    <h2>Instagram (form + textarea + "Post" div[role=button]; Enter posts)</h2>
+    <form id="ig"><textarea aria-label="Add a comment…" placeholder="Add a comment…"></textarea><div role="button" tabindex="0">Post</div></form>
+  </section>
+
+  <section>
+    <h2>Instagram, newer layout (no form; rich-text box; "Post" div[role=button]; Enter posts)</h2>
+    <div id="ig2"><div class="wrap"><div class="inner"><div contenteditable="true" role="textbox" aria-label="Add a comment…"></div></div></div><div><div role="button" tabindex="0">Post</div></div></div>
+  </section>
+
+  <section>
+    <h2>Instagram, Lexical editor (inserts text itself; no 'input' event; Enter posts)</h2>
+    <div id="ig3"><div><div contenteditable="true" role="textbox" aria-label="Add a comment…"></div></div><div role="button" tabindex="0">Post</div></div>
+  </section>
+
+  <section>
+    <h2>Instagram messages (Lexical box; "Send" appears only after typing; Enter sends)</h2>
+    <div id="igdm"><div><div contenteditable="true" role="textbox" aria-label="Message"></div></div><div class="dm-actions"><div role="button" tabindex="0" aria-label="Voice clip">🎤</div><div role="button" tabindex="0" aria-label="Like">♡</div></div></div>
+  </section>
+
+  <section>
+    <h2>WhatsApp Web (footer + contenteditable textbox + Send button; Enter sends)</h2>
+    <div id="main"><header><span dir="auto">Priya</span></header><footer id="wa"><div contenteditable="true" role="textbox" aria-label="Type a message"></div><button aria-label="Send">➤</button></footer></div>
+  </section>
+
+  <h2>What the sites sent</h2>
+  <ol id="posted"></ol>
+
+<script>
+  const params = new URLSearchParams(location.search);
+  const posted = (site, text) => { const li = document.createElement('li'); li.textContent = `${site}: ${text}`; document.getElementById('posted').appendChild(li); };
+
+  // Fake Instagram: the Post "button" and Enter both post.
+  const igText = document.querySelector('#ig textarea');
+  const igPost = () => { if (igText.value.trim()) { posted('instagram', igText.value.trim()); igText.value = ''; } };
+  document.querySelector('#ig [role=button]').addEventListener('click', igPost);
+  igText.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); igPost(); } });
+  document.getElementById('ig').addEventListener('submit', (e) => e.preventDefault());
+
+  // Fake newer Instagram: no form; the Post "button" and Enter both post.
+  const ig2Box = document.querySelector('#ig2 [contenteditable]');
+  const ig2Post = () => { if (ig2Box.innerText.trim()) { posted('instagram (new layout)', ig2Box.innerText.trim()); ig2Box.textContent = ''; } };
+  document.querySelector('#ig2 [role=button]').addEventListener('click', ig2Post);
+  ig2Box.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ig2Post(); } });
+
+  // Fake Lexical (what Instagram uses). Like the real one it keeps its own copy of the text:
+  // typing arrives as 'beforeinput' (no 'input' event), a paste is accepted, and any other change
+  // to the box (document.execCommand, setting textContent) is undone straight away.
+  function fakeLexical(box, onChange = () => {}) {
+    let model = '';
+    const render = () => {
+      observer.disconnect();
+      box.innerHTML = model ? '' : '<p><br></p>';
+      if (model) { const p = document.createElement('p'); p.textContent = model; box.appendChild(p); }
+      const r = document.createRange(); r.selectNodeContents(box); r.collapse(false);
+      if (document.activeElement === box) { const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+      observer.observe(box, { childList: true, subtree: true, characterData: true });
+      onChange();
+    };
+    const observer = new MutationObserver(() => render()); // someone else edited the box: put ours back
+    const allSelected = () => { const sel = getSelection(); return sel.rangeCount && model && sel.toString().trim() === model.trim(); };
+    box.addEventListener('beforeinput', (e) => {
+      e.preventDefault();
+      if (e.inputType === 'insertText' && e.data) model = (allSelected() ? '' : model) + e.data;
+      else if (e.inputType === 'deleteContentBackward') model = allSelected() ? '' : model.slice(0, -1);
+      render();
+    });
+    box.addEventListener('paste', (e) => {
+      e.preventDefault();
+      model = (allSelected() ? '' : model) + (e.clipboardData?.getData('text/plain') || '');
+      render();
+    });
+    render();
+    return { text: () => model.trim(), clear: () => { model = ''; render(); } };
+  }
+  const ig3 = fakeLexical(document.querySelector('#ig3 [contenteditable]'));
+  const ig3Post = () => { if (ig3.text()) { posted('instagram (Lexical)', ig3.text()); ig3.clear(); } };
+  document.querySelector('#ig3 [role=button]').addEventListener('click', ig3Post);
+  document.querySelector('#ig3 [contenteditable]').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ig3Post(); } });
+
+  // Fake Instagram messages, like the real box: Lexical, and the "Send" button exists only
+  // while there is text — when empty, mic and like icons instead.
+  const dmActions = document.querySelector('#igdm .dm-actions');
+  const dmEmpty = dmActions.innerHTML;
+  const dmRender = () => {
+    dmActions.innerHTML = dm && dm.text() ? '<div role="button" tabindex="0">Send</div>' : dmEmpty;
+    dmActions.querySelector('[role=button]').addEventListener('click', () => dm.text() && dmSend());
+  };
+  let dm = null;
+  dm = fakeLexical(document.querySelector('#igdm [contenteditable]'), dmRender);
+  const dmSend = () => { posted('instagram message', dm.text()); dm.clear(); };
+  document.querySelector('#igdm [contenteditable]').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (dm.text()) dmSend(); } });
+
+  // Fake WhatsApp: Send and Enter both send.
+  const waBox = document.querySelector('#wa [contenteditable]');
+  const waSend = () => { if (waBox.innerText.trim()) { posted('whatsapp', waBox.innerText.trim()); waBox.textContent = ''; } };
+  document.querySelector('#wa button').addEventListener('click', waSend);
+  waBox.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); waSend(); } });
+
+  // Stand-in for the extension's background worker and storage.
+  window.__ARGUS_SITE = params.get('site') || 'instagram';
+  const store = { messages: params.get('messages') === 'on' || params.get('whatsapp') === 'on' };
+  const post = (path, body) => fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  window.chrome = {
+    storage: { sync: { get: async () => store }, onChanged: { addListener() {} },
+      // In-memory stand-in for chrome.storage.local (repeat-harshness history).
+      local: { mem: {}, async get(k) { return { [k]: this.mem[k] }; }, async set(o) { Object.assign(this.mem, JSON.parse(JSON.stringify(o))); }, async remove(k) { delete this.mem[k]; } } },
+    runtime: { id: "bench", sendMessage: async (msg) => {
+      try {
+        const res = msg.type === 'check' ? await post('/api/ext/check', { text: msg.text, site: msg.site, replyingTo: msg.replyingTo })
+          : msg.type === 'peek' ? await post('/api/ext/peek', { text: msg.text })
+          : msg.type === 'suggest' ? await post('/api/ext/suggest', { text: msg.text, replyingTo: msg.replyingTo })
+          : await fetch('/api/ext/status?id=' + encodeURIComponent(msg.id));
+        const data = await res.json();
+        if (!res.ok) return msg.type === 'check' ? { allowed: false, verdict: 'unavailable', reason: data.error } : { status: 'unknown' };
+        return data;
+      } catch (e) { return msg.type === 'check' ? { allowed: false, verdict: 'unavailable', reason: String(e) } : { status: 'unknown' }; }
+    } },
+  };
+</script>
+<script src="/content.js"></script>
+</body>
+</html>

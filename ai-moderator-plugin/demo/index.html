@@ -2,17 +2,65 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AI Moderator demo</title>
+<title>AI Moderator widget</title>
 <link rel="stylesheet" href="/moderator-widget.css">
-<style>body{margin:0;background:#0b1118;color:#edf3fa;font:15px/1.6 Inter,'Segoe UI',system-ui,sans-serif}main{max-width:720px;margin:48px auto;padding:0 16px}h1{font-size:22px;margin:0 0 4px}p{color:#9cabbc;margin:0 0 20px}</style>
+<style>
+  body{margin:0;background:#f6f7f9;color:#16181d;font:15px/1.6 Inter,'Segoe UI',system-ui,sans-serif}
+  main{max-width:640px;margin:48px auto;padding:0 16px}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:#6b7280;margin:0 0 24px}
+  .post{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:20px}
+  .post .who{font-weight:600}.post .body{margin:6px 0 16px}
+  h2{font-size:16px;margin:32px 0 4px}
+  .queue{display:grid;gap:10px}
+  .item{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px;font-size:14px}
+  .item .meta{color:#6b7280;font-size:13px}
+  .item .row{display:flex;gap:8px;margin-top:8px}
+  .item button{font:600 13px inherit;border-radius:8px;padding:6px 12px;cursor:pointer;border:1px solid #e5e7eb;background:#fff}
+  .item button.approve{background:#4f46e5;color:#fff;border-color:#4f46e5}
+  .empty{color:#6b7280;font-size:14px}
+</style>
 </head>
 <body>
 <main>
-  <h1>A little clarity before you post.</h1>
-  <p>Grammar and safety suggestions as you type.</p>
-  <div id="moderator"></div>
+  <h1>AI Moderator — drop-in widget</h1>
+  <p class="sub">Type a reply. Rude comments get a better way to say it; harmful ones get an explanation.</p>
+  <div class="post">
+    <div class="who">Maya Iyer</div>
+    <div class="body">letss go i am invited for singing for a big event pray for me guyyysss</div>
+    <div id="moderator"></div>
+  </div>
+  <h2>Moderator queue</h2>
+  <p class="sub">Demo only: on a real site this lives on your admin page.</p>
+  <div class="queue" id="queue"></div>
 </main>
 <script src="/moderator-widget.js"></script>
-<script>AIModerator.mount(document.querySelector('#moderator'), { endpoint: '/api/plugin' });</script>
+<script>
+  AIModerator.mount(document.querySelector('#moderator'), {
+    endpoint: '/api/plugin',
+    replyingTo: document.querySelector('.post .body').textContent,
+  });
+
+  const ADMIN = { 'x-moderator-admin': 'demo-moderator' };
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const WHY = { waiting: 'Asked for review, or the AI wasn\'t sure', flagged: 'Severe — sent automatically, stays unposted' };
+  async function loadQueue() {
+    const { queue = [] } = await fetch('/api/plugin/queue', { headers: ADMIN }).then(r => r.json()).catch(() => ({}));
+    const box = document.querySelector('#queue');
+    box.innerHTML = queue.length ? queue.map(q => `<div class="item" data-id="${esc(q.id)}">
+        <div>${esc(q.text)}</div>
+        <div class="meta">${esc(q.verdict)} · ${esc(WHY[q.status])}${q.meaning ? ' · reads as: ' + esc(q.meaning) : ''}</div>
+        <div class="row">${q.verdict === 'severe' ? '' : '<button class="approve" data-d="approve">Approve</button>'}
+          <button data-d="uphold">${q.verdict === 'severe' ? 'Seen' : 'Keep unposted'}</button></div>
+      </div>`).join('') : '<p class="empty">Nothing waiting.</p>';
+  }
+  document.querySelector('#queue').addEventListener('click', async e => {
+    const d = e.target.dataset?.d; if (!d) return;
+    const id = e.target.closest('.item').dataset.id;
+    await fetch('/api/plugin/resolve', { method: 'POST', headers: { 'Content-Type': 'application/json', ...ADMIN }, body: JSON.stringify({ id, decision: d }) });
+    loadQueue();
+  });
+  loadQueue(); setInterval(loadQueue, 3000);
+</script>
 </body>
 </html>

@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "ARGUS: think before you post, check before you share",
+  "version": "0.3.0",
+  "description": "Checks your comments on YouTube, Reddit and Instagram before they post, and checks images in your feed for signs of AI and private details. Talks to your ARGUS server.",
+  "permissions": ["storage", "contextMenus", "scripting", "activeTab"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://m.youtube.com/*",
+        "https://www.reddit.com/*",
+        "https://old.reddit.com/*",
+        "https://sh.reddit.com/*",
+        "https://www.instagram.com/*",
+        "https://web.whatsapp.com/*"
+      ],
+      "js": ["moderator.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://*.instagram.com/*",
+        "*://*.reddit.com/*",
+        "*://*.youtube.com/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": ["lens.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_page": "options.html",
+  "action": { "default_title": "ARGUS", "default_popup": "popup.html" }
+}

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ARGUS settings</title>
+<style>
+  body{font:15px/1.5 'Segoe UI',system-ui,sans-serif;max-width:540px;margin:32px auto;padding:0 16px;color:#14161c;background:#fff}
+  h1{font-size:20px;margin:0 0 4px}
+  h2{font-size:16px;margin:28px 0 4px}
+  p{color:#5d6272;margin:4px 0}
+  label{display:block;font-weight:600;margin-top:16px}
+  input{box-sizing:border-box;width:100%;padding:8px 10px;margin-top:6px;border:1px solid #d0d4de;border-radius:8px;font:inherit}
+  label.check{display:flex;align-items:center;gap:8px}
+  label.check input{width:auto;margin:0}
+  .hint{margin:6px 0 0;font-size:13px}
+  button{margin-top:16px;padding:8px 14px;border-radius:8px;border:0;background:#2b4acb;color:#fff;font:600 14px inherit;cursor:pointer}
+  button.danger{background:#fff;color:#b42318;border:1px solid #f9d0cc}
+  #saved,#cleared{margin-left:8px;color:#047857;font-size:13px}
+</style>
+</head>
+<body>
+  <h1>ARGUS</h1>
+  <p>One extension, two checks, both answered by your ARGUS server. The AI keys stay on the server.</p>
+
+  <label for="server">ARGUS server address</label>
+  <input id="server" type="url" placeholder="http://localhost:8787">
+  <label for="apiKey">Extension key (only if your server sets ARGUS_EXTENSION_KEY)</label>
+  <input id="apiKey" type="text" autocomplete="off">
+
+  <h2>Your comments</h2>
+  <p>Comments on YouTube, Reddit and Instagram are checked when you press Post.</p>
+  <label class="check"><input id="messages" type="checkbox"> Also check my private messages (WhatsApp Web, Instagram)</label>
+  <p class="hint">Off by default. Messages are checked but never saved, and never shown to a moderator.</p>
+
+  <h2>Images in your feed</h2>
+  <p>Hover over an image on Instagram, Reddit or YouTube and click <b>Check</b>, or right-click any image on any site.</p>
+  <label class="check"><input id="auto" type="checkbox"> Check images automatically as I scroll</label>
+  <p class="hint">Off by default: every check sends the image to your server and uses Meta API credits. When the server's credits run out, images say "Couldn't check" instead.</p>
+  <label for="limit">At most this many automatic checks a minute</label>
+  <input id="limit" type="number" min="1" max="60" value="10">
+
+  <button id="save" type="button">Save</button><span id="saved" role="status"></span>
+
+  <h2>Your history</h2>
+  <p class="hint">When you send several harsh messages to the same person (or comments on the same post) in a week, ARGUS tells you, so you can notice the pattern. Only you see this. It stays in this browser: who it was to is scrambled, never the message itself, and it's erased after 30 days.</p>
+  <button id="clear" type="button" class="danger">Clear my history</button><span id="cleared" role="status"></span>
+<script src="options.js"></script>
+</body>
+</html>

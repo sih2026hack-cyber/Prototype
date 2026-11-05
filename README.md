@@ -7,11 +7,14 @@ ARGUS turns public YouTube comments into a privacy-aware dashboard and an eviden
 - **Trends and topics**: multilingual Sentence Transformer embeddings and BERTopic clusters, summarised by MiniMax.
 - **Network**: observed reply and participation links.
 - **Ask ARGUS**: a chatbot that answers from the collected evidence and links its sources.
-- **PDF report** and an optional **writing plugin** that checks grammar and safety.
+- **PDF report**.
+- **Comment moderator** (`ai-moderator-plugin/`, from the team's AI Moderator): checks a comment before it posts, suggests a better way to say a rude one, explains a harmful one, and sends unclear ones to a moderator. It uses NVIDIA Nemotron while Nebius credits last, then MiniMax.
+- **Argus Lens** (`lens/`, page at `/lens`): checks a photo or video for signs of AI generation and for harmful or private details, with the evidence outlined. It uses Meta's Muse Wonder and SAM 3.1, and stops ("Couldn't check") when the Meta credits are used up.
+- **Browser extension** (`extension/`): both checks on YouTube, Reddit and Instagram, using the ARGUS server. See [extension/README.md](extension/README.md).
 
 ## Run it
 
-Requires Node.js 20+.
+Requires Node.js 22+. Run `npm install` once.
 
 ```powershell
 npm start

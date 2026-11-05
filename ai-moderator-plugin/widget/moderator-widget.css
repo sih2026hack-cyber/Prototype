@@ -1,19 +1,21 @@
-/* Writing-moderator box. Colours follow the host page's --bg/--text/--line/--muted/--teal/--red/--yellow
-   variables when they exist; override the --aim-* variables to restyle it. */
-.aim{--aim-bg:var(--bg,#0b1118);--aim-text:var(--text,#edf3fa);--aim-line:var(--line,#273341);--aim-muted:var(--muted,#9cabbc);
-  --aim-accent:var(--teal,#7be8c0);--aim-danger:var(--red,#f68e9c);--aim-warn:var(--yellow,#eecb7c);
-  --aim-font:var(--sans,Inter,'Segoe UI',system-ui,sans-serif)}
+/* Comment-moderator box. Light by default; override the --aim-* variables on .aim to restyle it. */
+.aim{--aim-bg:#ffffff;--aim-text:#16181d;--aim-muted:#6b7280;--aim-line:#e5e7eb;--aim-accent:#4f46e5;--aim-accent-text:#ffffff;
+  --aim-ok:#047857;--aim-ok-bg:#ecfdf5;--aim-warn:#92400e;--aim-warn-bg:#fffbeb;--aim-danger:#b91c1c;--aim-danger-bg:#fef2f2;
+  --aim-font:Inter,'Segoe UI',system-ui,sans-serif;font-family:var(--aim-font);color:var(--aim-text)}
 .aim-sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.aim-draft{box-sizing:border-box;width:100%;min-height:105px;resize:vertical;background:var(--aim-bg);color:var(--aim-text);border:1px solid var(--aim-line);border-radius:9px;padding:16px;font:14px/1.7 var(--aim-font)}
-.aim-actions{display:flex;gap:16px;align-items:center;margin-top:12px}
-.aim-status{font-size:10px;color:var(--aim-muted)}
-.aim-result{font-size:12px;margin-top:14px;line-height:1.7;color:var(--aim-text)}
-.aim-result[data-risk=high_risk]{color:var(--aim-danger)}
-.aim-result[data-risk=review]{color:var(--aim-warn)}
-.aim-result p{margin:5px 0 0}
-.aim-note{font-size:11px;color:var(--aim-muted)}
+.aim-draft{box-sizing:border-box;width:100%;min-height:96px;resize:vertical;background:var(--aim-bg);color:var(--aim-text);border:1px solid var(--aim-line);border-radius:12px;padding:12px 14px;font:15px/1.6 var(--aim-font)}
+.aim-draft:focus{outline:2px solid var(--aim-accent);outline-offset:1px}
+.aim-hint{min-height:18px;margin-top:6px;font-size:13px;color:var(--aim-muted)}
+.aim-actions{display:flex;justify-content:flex-end;margin-top:4px}
+.aim-result:not(:empty){margin-top:12px;padding:12px 14px;border-radius:12px;font-size:14px;line-height:1.6;border:1px solid var(--aim-line)}
+.aim-result[data-verdict=clean]{background:var(--aim-ok-bg);color:var(--aim-ok);border-color:transparent}
+.aim-result[data-verdict=rude],.aim-result[data-verdict=unsure],.aim-result[data-verdict=unavailable]{background:var(--aim-warn-bg);color:var(--aim-warn);border-color:transparent}
+.aim-result[data-verdict=severe]{background:var(--aim-danger-bg);color:var(--aim-danger);border-color:transparent}
+.aim-result p{margin:6px 0 0}
+.aim-result blockquote{margin:10px 0 0;padding:8px 12px;border-left:3px solid currentColor;background:#ffffffaa;color:var(--aim-text);border-radius:6px}
+.aim-buttons{display:flex;gap:8px;flex-wrap:wrap}
+.aim-buttons:not(:empty){margin-top:10px}
 /* :where() keeps these at element specificity, so a host page's own button styles still win. */
-:where(.aim) button{font:inherit;cursor:pointer;border:0;background:var(--aim-accent);color:#0a2520;border-radius:8px;padding:11px 17px;font-weight:650}
+:where(.aim) button{font:600 14px var(--aim-font);cursor:pointer;border:0;background:var(--aim-accent);color:var(--aim-accent-text);border-radius:10px;padding:8px 14px}
+:where(.aim) button.aim-secondary{background:transparent;color:var(--aim-text);border:1px solid var(--aim-line)}
 :where(.aim) button:disabled{opacity:.55;cursor:wait}
-.aim-result button{margin-top:10px;font-size:12px;padding:7px 12px}
-@media(max-width:650px){.aim-actions{align-items:flex-start;flex-direction:column}}

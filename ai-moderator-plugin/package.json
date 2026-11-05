@@ -1,12 +1,14 @@
 {
   "name": "ai-moderator-plugin",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "Writing moderator: instant threat/hostility check plus a MiniMax review that suggests safer, clearer rewrites.",
+  "description": "Comment moderator: checks each comment with NVIDIA Nemotron, offers a better way to say rude ones, and explains why harmful ones can't be posted.",
+  "license": "MIT",
   "type": "module",
   "main": "src/index.mjs",
+  "types": "src/index.d.mts",
   "exports": {
-    ".": "./src/index.mjs",
+    ".": { "types": "./src/index.d.mts", "default": "./src/index.mjs" },
     "./widget/*": "./widget/*"
   },
   "scripts": {

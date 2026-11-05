@@ -1,20 +1,34 @@
-// Drop-in writing-moderator box. Plain script, no build step:
+// Drop-in comment-moderator box. Plain script, no build step:
 //   <link rel="stylesheet" href="moderator-widget.css"><script src="moderator-widget.js"></script>
 //   AIModerator.mount(document.querySelector('#box'), { endpoint: '/api/plugin' });
 // Talks to the routes from moderatorHandler() (src/service.mjs).
 (function () {
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  const NAMES = { high_risk: 'High risk · threat warning', review: 'Review suggested', safe: 'Checked', unchecked: 'Local preview' };
+  const TITLES = {
+    clean: 'Looks good — ready to post',
+    rude: "Not posted yet — here's another way to say it",
+    rudeNoSuggestion: 'Not posted yet — try saying it another way',
+    severe: "Can't be posted",
+    unsure: 'A person will check this',
+    unavailable: "Couldn't check right now",
+    waiting: 'Waiting for a moderator',
+    approved: 'Ready to post',
+    upheld: 'A moderator kept this unposted',
+    expired: 'Not posted',
+  };
 
-  function mount(target, { endpoint = '/api/plugin', placeholder = 'Try a draft here. The moderator will check it as you write…', idleText = 'Drafts are sent for AI checking and saved after you pause.', previewDelay = 200, aiDelay = 1800, onAccept = null } = {}) {
+  // options.onAllowed(text): called when the comment is cleared to post (checked clean, a suggestion
+  // accepted, or approved by a moderator).
+  function mount(target, { endpoint = '/api/plugin', replyingTo = null, placeholder = 'Write a comment…', checkDelay = 1800, pollEvery = 5000, onAllowed = null } = {}) {
     target.classList.add('aim');
-    target.innerHTML = `<label class="aim-sr-only" for="aimDraft">Draft to check</label>
+    target.innerHTML = `<label class="aim-sr-only" for="aimDraft">Comment</label>
       <textarea class="aim-draft" id="aimDraft" maxlength="2000" placeholder="${esc(placeholder)}"></textarea>
-      <div class="aim-actions"><button type="button" class="aim-check">Check with AI</button><span class="aim-status" role="status">${esc(idleText)}</span></div>
+      <div class="aim-hint" role="status"></div>
+      <div class="aim-actions"><button type="button" class="aim-check">Check</button></div>
       <div class="aim-result" role="status"></div>`;
     const $ = sel => target.querySelector(sel);
-    const draft = $('.aim-draft'), button = $('.aim-check'), status = $('.aim-status'), box = $('.aim-result');
-    let previewTimer, aiTimer, revision = 0, inFlight = false, lastChecked = '', latest = null;
+    const draft = $('.aim-draft'), button = $('.aim-check'), hint = $('.aim-hint'), box = $('.aim-result');
+    let hintTimer, checkTimer, pollTimer, revision = 0, inFlight = false, lastChecked = '';
 
     async function post(action, body) {
       const response = await fetch(endpoint + '/' + action, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -22,46 +36,82 @@
       if (!response.ok) throw new Error(data.error || 'The moderator is unavailable.');
       return data;
     }
-    function show(result, preview = false) {
-      box.dataset.risk = result.verdict;
-      box.innerHTML = `<strong>${esc(NAMES[result.verdict] || result.verdict)}</strong><p>${esc(result.reason || '')}</p>`
-        + (result.corrected_text ? `<p>Suggestion: ${esc(result.corrected_text)}</p>` : '')
-        + (result.warning ? `<p>${esc(result.warning)}</p>` : '')
-        + (!preview && result.note ? `<p class="aim-note">${esc(result.note)}</p>` : '')
-        + (!preview && result.complete && result.corrected_text ? '<button type="button" class="aim-accept">Use suggestion</button>' : '');
-      if (preview) return;
-      latest = result;
+
+    function show(result) {
+      box.dataset.verdict = result.verdict;
+      const title = result.verdict === 'rude' && !result.suggestion ? TITLES.rudeNoSuggestion : TITLES[result.verdict] || result.verdict;
+      box.innerHTML = `<strong>${esc(title)}</strong>`
+        + (result.verdict !== 'clean' ? `<p>${esc(result.reason)}</p>` : '')
+        + (result.review?.status === 'flagged' ? '<p>It was also sent to a moderator automatically.</p>' : '')
+        + (result.suggestion ? `<blockquote>${esc(result.suggestion)}</blockquote>` : '')
+        + '<div class="aim-buttons">'
+        + (result.suggestion ? '<button type="button" class="aim-accept">Use this</button>' : '')
+        + (result.verdict === 'rude' || result.verdict === 'severe' ? '<button type="button" class="aim-edit aim-secondary">Edit it myself</button>' : '')
+        + (result.verdict === 'rude' ? '<button type="button" class="aim-ask aim-secondary">Ask a moderator</button>' : '')
+        + '</div>';
       $('.aim-accept')?.addEventListener('click', async () => {
         try {
-          const r = await post('accept', { id: latest.id });
-          draft.value = r.text; revision++; lastChecked = r.text;
-          status.textContent = `Suggestion accepted · ${r.storage}`;
-          onAccept?.(r.text);
-        } catch (error) { status.textContent = error.message; }
+          const r = await post('accept', { id: result.id });
+          draft.value = r.text; lastChecked = r.text; revision++;
+          box.dataset.verdict = 'clean'; box.innerHTML = `<strong>${esc(TITLES.clean)}</strong>`;
+          onAllowed?.(r.text);
+        } catch (error) { box.insertAdjacentHTML('beforeend', `<p>${esc(error.message)}</p>`); }
       });
+      $('.aim-edit')?.addEventListener('click', () => { draft.focus(); draft.setSelectionRange(draft.value.length, draft.value.length); });
+      $('.aim-ask')?.addEventListener('click', async () => {
+        const version = revision;
+        try { const s = await post('ask', { id: result.id }); if (version === revision) review(s, version); }
+        catch (error) { box.insertAdjacentHTML('beforeend', `<p>${esc(error.message)}</p>`); }
+      });
+      if (result.allowed) onAllowed?.(draft.value.trim());
+      if (result.verdict === 'unsure' && result.review?.status === 'waiting') poll(result.id, revision);
     }
+
+    // A comment a moderator is handling: show where it stands, and keep asking until they decide.
+    // Editing the draft stops this (the edited text is checked again from the top).
+    function review(s, version) {
+      clearTimeout(pollTimer);
+      box.dataset.verdict = s.status === 'approved' ? 'clean' : s.status === 'upheld' ? 'severe' : 'unsure';
+      box.innerHTML = `<strong>${esc(TITLES[s.status] || s.status)}</strong><p>${esc(s.reason)}</p>`;
+      if (s.status === 'approved') { draft.value = s.text; lastChecked = s.text; revision++; onAllowed?.(s.text); }
+      else if (s.status === 'waiting') poll(s.id, version);
+    }
+    function poll(id, version) {
+      clearTimeout(pollTimer);
+      pollTimer = setTimeout(async () => {
+        if (version !== revision) return;
+        try { const s = await post('status', { id }); if (version === revision) review(s, version); }
+        catch { if (version === revision) poll(id, version); }
+      }, pollEvery);
+    }
+
     async function check() {
-      clearTimeout(aiTimer);
+      clearTimeout(checkTimer);
       const text = draft.value.trim(), version = revision;
       if (!text || text === lastChecked) return;
-      if (inFlight) { aiTimer = setTimeout(check, 1500); return; }
-      inFlight = true; button.disabled = true; status.textContent = 'Checking your draft…';
+      if (inFlight) { checkTimer = setTimeout(check, 1200); return; }
+      inFlight = true; button.disabled = true; button.textContent = 'Checking…';
       try {
-        const result = await post('check', { text }); lastChecked = text;
-        if (version === revision) { show(result); status.textContent = `${result.complete ? 'AI check' : 'Local check'} saved · ${result.storage}`; }
-      } catch (error) { if (version === revision) status.textContent = error.message; }
-      finally {
-        inFlight = false; button.disabled = false;
-        if (version !== revision && draft.value.trim()) aiTimer = setTimeout(check, aiDelay);
+        const result = await post('check', { text, replyingTo });
+        lastChecked = text;
+        if (version === revision) show(result);
+      } catch (error) {
+        if (version === revision) show({ verdict: 'unavailable', reason: error.message, allowed: false });
+      } finally {
+        inFlight = false; button.disabled = false; button.textContent = 'Check';
       }
     }
+
     draft.addEventListener('input', () => {
       revision++; const version = revision, text = draft.value.trim();
-      clearTimeout(previewTimer); clearTimeout(aiTimer);
-      box.textContent = ''; status.textContent = text ? 'Checking your draft as you type…' : 'Type a draft to begin.';
-      if (!text) return;
-      previewTimer = setTimeout(async () => { try { const r = await post('preview', { text }); if (version === revision) show(r, true); } catch {} }, previewDelay);
-      aiTimer = setTimeout(check, aiDelay);
+      clearTimeout(hintTimer); clearTimeout(checkTimer); clearTimeout(pollTimer);
+      box.textContent = ''; delete box.dataset.verdict;
+      if (!text) { hint.textContent = ''; return; }
+      // Instant local hint while typing; the real check runs after a pause.
+      hintTimer = setTimeout(async () => {
+        try { const r = await post('preview', { text }); if (version === revision) hint.textContent = r.message || ''; } catch { /* hint only */ }
+      }, 200);
+      checkTimer = setTimeout(check, checkDelay);
     });
     button.addEventListener('click', () => { lastChecked = ''; check(); });
     return { get value() { return draft.value; }, set value(text) { draft.value = text; draft.dispatchEvent(new Event('input')); }, check };

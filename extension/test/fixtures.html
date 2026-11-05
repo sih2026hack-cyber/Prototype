@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Argus extension test bench</title>
+<style>
+  body { font: 15px/1.5 'Segoe UI', system-ui, sans-serif; max-width: 640px; margin: 32px auto; padding: 0 16px; color: #15171c; }
+  section { border: 1px solid #e3e6eb; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  h2 { font-size: 15px; margin: 0 0 8px; }
+  [contenteditable], textarea { display: block; width: 100%; box-sizing: border-box; min-height: 44px; border: 1px solid #ccc; border-radius: 8px; padding: 8px; margin-bottom: 8px; font: inherit; }
+  #posted { background: #f6f7f9; border-radius: 12px; padding: 12px; }
+</style>
+</head>
+<body>
+  <h1 style="font-size:20px">Local copies of the YouTube and Reddit comment boxes</h1>
+  <p>Each box's own button records what the site would have posted. The extension script must block it until the comment is allowed.</p>
+
+  <section>
+    <h2>YouTube (ytd-commentbox, contenteditable)</h2>
+    <ytd-commentbox id="yt">
+      <div id="contenteditable-root" contenteditable="true" aria-label="Add a comment"></div>
+      <div id="submit-button"><button aria-label="Comment">Comment</button></div>
+    </ytd-commentbox>
+  </section>
+
+  <section>
+    <h2>Reddit (shreddit-composer, editor inside a shadow root)</h2>
+    <shreddit-composer id="rd"><button slot="submit-button" type="button">Comment</button></shreddit-composer>
+  </section>
+
+  <section>
+    <h2>Reddit today (faceplate-form → shreddit-composer → Lexical box slotted in; Comment submits the form; Ctrl+Enter too)</h2>
+    <comment-composer-host id="rd2-host">
+      <faceplate-form id="rd2" action="/svc/shreddit/comment">
+        <shreddit-composer>
+          <div slot="rte" contenteditable="true" role="textbox" data-lexical-editor="true" aria-label="Add a comment" aria-placeholder="Join the conversation"></div>
+          <button slot="submit-button" type="submit">Comment</button>
+        </shreddit-composer>
+      </faceplate-form>
+    </comment-composer-host>
+  </section>
+
+  <section>
+    <h2>old.reddit.com (form + textarea + save)</h2>
+    <form class="usertext" id="old"><textarea name="text"></textarea><button type="submit" class="save">save</button></form>
+  </section>
+
+  <h2>What the sites posted</h2>
+  <ol id="posted"></ol>
+
+<script>
+  // The fake sites. Each records a post when its own submit fires.
+  const posted = (site, text) => { const li = document.createElement('li'); li.textContent = `${site}: ${text}`; document.getElementById('posted').appendChild(li); };
+
+  const ytEditor = document.querySelector('#yt #contenteditable-root');
+  document.querySelector('#yt button').addEventListener('click', () => { posted('youtube', ytEditor.innerText.trim()); ytEditor.textContent = ''; });
+
+  // shreddit-composer: today's version shows the Lexical box from the page through a slot;
+  // the older shape (#rd) keeps its editor inside the shadow root.
+  customElements.define('shreddit-composer', class extends HTMLElement {
+    connectedCallback() {
+      if (this.shadowRoot) return;
+      const slotted = this.querySelector('[slot="rte"]');
+      this.attachShadow({ mode: 'open' }).innerHTML = (slotted ? '<slot name="rte"></slot>' : '<div contenteditable="true" role="textbox" style="border:1px solid #ccc;border-radius:8px;padding:8px;min-height:44px;margin-bottom:8px"></div>') + '<slot name="submit-button"></slot>';
+    }
+  });
+  // faceplate-form: Reddit's form element (not a <form>); its submit button sends the comment.
+  customElements.define('faceplate-form', class extends HTMLElement {});
+
+  // Fake Lexical, as on the Instagram bench: typing arrives as beforeinput, a paste is
+  // accepted, any other change to the box is undone straight away.
+  function fakeLexical(box) {
+    let model = '';
+    const render = () => {
+      observer.disconnect();
+      box.innerHTML = model ? '' : '<p><br></p>';
+      if (model) { const p = document.createElement('p'); p.textContent = model; box.appendChild(p); }
+      if (document.activeElement === box) { const r = document.createRange(); r.selectNodeContents(box); r.collapse(false); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+      observer.observe(box, { childList: true, subtree: true, characterData: true });
+    };
+    const observer = new MutationObserver(() => render());
+    const allSelected = () => { const sel = getSelection(); return sel.rangeCount && model && sel.toString().trim() === model.trim(); };
+    box.addEventListener('beforeinput', (e) => {
+      e.preventDefault();
+      if (e.inputType === 'insertText' && e.data) model = (allSelected() ? '' : model) + e.data;
+      else if (e.inputType === 'deleteContentBackward') model = allSelected() ? '' : model.slice(0, -1);
+      render();
+    });
+    box.addEventListener('paste', (e) => { e.preventDefault(); model = (allSelected() ? '' : model) + (e.clipboardData?.getData('text/plain') || ''); render(); });
+    render();
+    return { text: () => model.trim(), clear: () => { model = ''; render(); } };
+  }
+  const rd2Box = document.querySelector('#rd2 [slot="rte"]');
+  const rd2 = fakeLexical(rd2Box);
+  const rd2Submit = () => { if (rd2.text()) { posted('reddit (today)', rd2.text()); rd2.clear(); } };
+  document.querySelector('#rd2 button[type=submit]').addEventListener('click', rd2Submit);
+  rd2Box.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); rd2Submit(); } });
+  const rdEditor = document.getElementById('rd').shadowRoot.querySelector('[contenteditable]');
+  document.querySelector('#rd button').addEventListener('click', () => { posted('reddit', rdEditor.innerText.trim()); rdEditor.textContent = ''; });
+
+  document.getElementById('old').addEventListener('submit', (e) => { e.preventDefault(); const t = e.target.text; posted('old.reddit', t.value.trim()); t.value = ''; });
+
+  // Stand-in for the extension's background worker: same calls, through this page's server.
+  window.__ARGUS_SITE = new URLSearchParams(location.search).get('site') || 'youtube';
+  window.chrome = { storage: { local: { mem: {}, async get(k) { return { [k]: this.mem[k] }; }, async set(o) { Object.assign(this.mem, JSON.parse(JSON.stringify(o))); }, async remove(k) { delete this.mem[k]; } } },
+    runtime: { id: "bench", sendMessage: async (msg) => {
+    try {
+      const post = (path, body) => fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const res = msg.type === 'check' ? await post('/api/ext/check', { text: msg.text, site: msg.site, replyingTo: msg.replyingTo })
+        : msg.type === 'peek' ? await post('/api/ext/peek', { text: msg.text })
+        : msg.type === 'suggest' ? await post('/api/ext/suggest', { text: msg.text, replyingTo: msg.replyingTo })
+        : await fetch('/api/ext/status?id=' + encodeURIComponent(msg.id));
+      const data = await res.json();
+      if (!res.ok) return msg.type === 'check' ? { allowed: false, verdict: 'unavailable', reason: data.error } : { status: 'unknown' };
+      return data;
+    } catch (e) { return msg.type === 'check' ? { allowed: false, verdict: 'unavailable', reason: String(e) } : { status: 'unknown' }; }
+  } } };
+</script>
+<script src="/content.js"></script>
+</body>
+</html>

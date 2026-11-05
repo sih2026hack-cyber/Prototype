@@ -1,5 +1,5 @@
 # ARGUS on Render (free plan friendly). Node serves the app; a small Python worker runs the NLP module.
-FROM node:20-bookworm-slim
+FROM node:22-bookworm-slim
 
 # Python for the NLP worker and PDF report; Noto fonts cover Latin and Tamil in the PDF.
 RUN apt-get update \
@@ -9,6 +9,10 @@ RUN apt-get update \
 WORKDIR /app
 COPY requirements-render.txt ./
 RUN python3 -m venv /opt/venv && /opt/venv/bin/pip install --no-cache-dir -r requirements-render.txt
+
+# Node dependency: @meta-sam/parser, used by Argus Lens (lens/) to read SAM 3.1's answers.
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
 COPY . .
 RUN mkdir -p data/runtime

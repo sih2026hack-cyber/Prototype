@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  body{margin:0;width:290px;padding:16px;font:14px/1.45 'Segoe UI',system-ui,sans-serif;color:#14161c;background:#fff}
+  .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px}
+  .brand svg{width:22px;height:22px;color:#2b4acb}
+  p{margin:8px 0 12px;color:#5d6272}
+  h2{font-size:13px;margin:14px 0 4px;color:#14161c}
+  button{display:block;width:100%;padding:10px 12px;border-radius:10px;border:0;background:#2b4acb;color:#fff;font:600 14px inherit;cursor:pointer}
+  button.secondary{margin-top:8px;background:#fff;color:#14161c;border:1px solid #e3e6ee}
+  .auto{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px}
+  #server{font-size:12px;color:#5d6272;margin-top:12px;word-break:break-all}
+  #server.bad{color:#b42318}
+</style>
+</head>
+<body>
+  <div class="brand"><svg viewBox="0 0 64 64" fill="none"><path d="M4 32C12 18 22 12 32 12s20 6 28 20c-8 14-18 20-28 20S12 46 4 32Z" stroke="currentColor" stroke-width="5"/><circle cx="32" cy="32" r="10" fill="currentColor"/></svg>ARGUS</div>
+  <h2>Your comments</h2>
+  <p>On YouTube, Reddit and Instagram, comments are checked when you press Post. Rude ones get a better way to say it; harmful ones are explained.</p>
+  <h2>Images in your feed</h2>
+  <p>Hover over an image and click <b>Check</b>, or right-click any image.</p>
+  <button id="file" type="button">Check a photo or video file</button>
+  <label class="auto"><input id="auto" type="checkbox"> Check feed images automatically (uses API credits)</label>
+  <button id="settings" class="secondary" type="button">Settings</button>
+  <div id="server" role="status"></div>
+<script src="popup.js"></script>
+</body>
+</html>

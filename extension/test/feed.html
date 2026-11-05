@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Argus Lens test feed</title>
+<style>
+  body{margin:0;background:#fafafa;font:14px/1.4 'Segoe UI',system-ui,sans-serif;color:#262626}
+  .bar{position:sticky;top:0;background:#fff;border-bottom:1px solid #dbdbdb;padding:12px 16px;font-weight:700;font-size:18px}
+  .bar span{font-weight:400;font-size:13px;color:#737373;margin-left:8px}
+  main{max-width:470px;margin:20px auto;padding:0 12px;display:grid;gap:22px}
+  article{background:#fff;border:1px solid #dbdbdb;border-radius:8px;overflow:hidden}
+  header{display:flex;align-items:center;gap:10px;padding:10px 12px;font-weight:600}
+  header i{width:32px;height:32px;border-radius:50%;background:linear-gradient(45deg,#f58529,#dd2a7b,#8134af)}
+  .media{position:relative;aspect-ratio:1/1;background:#000}
+  /* Like Instagram: a square crop of the photo, with a transparent layer on top of it. */
+  .media img{width:100%;height:100%;object-fit:cover;display:block}
+  .media .cover{position:absolute;inset:0}
+  .media.wide{aspect-ratio:16/9}
+  .media video{width:100%;height:100%;display:block}
+  .caption{padding:10px 12px}
+</style>
+</head>
+<body>
+  <div class="bar">Feedgram<span>a stand-in feed for testing Argus Lens (images made with Muse Image) · <a href="?auto=1">auto-check on</a> · <a href="?">off</a></span></div>
+  <main>
+    <article><header><i></i>priya.ships</header><div class="media"><img src="/samples/parcel.webp" alt="A parcel on a doorstep"><div class="cover"></div></div><div class="caption"><b>priya.ships</b> finally got my order 📦</div></article>
+    <article><header><i></i>priya.ships</header><div class="media wide"><video src="/samples/parcel-pan.mp4" muted loop playsinline controls></video></div><div class="caption"><b>priya.ships</b> unboxing day! 🎥</div></article>
+    <article><header><i></i>cafe.days</header><div class="media"><img src="/samples/cafe.webp" alt="A woman laughing in a cafe"><div class="cover"></div></div><div class="caption"><b>cafe.days</b> Sunday mornings ☕</div></article>
+  </main>
+<script>
+  // /test?auto=1 turns on automatic checks (the extension's settings switch).
+  window.__argusLensAuto = new URLSearchParams(location.search).get('auto') === '1';
+  // Outside a real extension, stand in for chrome.runtime: send the image straight to the Lens API.
+  if (!window.chrome?.runtime?.sendMessage) {
+    let frame = null; // stands in for the background script's screenshot of the video's box
+    window.chrome = { runtime: {
+      sendMessage: async msg => {
+        if (msg.type === 'captureFrame') {
+          const v = document.elementsFromPoint(msg.rect.x + msg.rect.width / 2, msg.rect.y + msg.rect.height / 2).find(e => e.tagName === 'VIDEO');
+          const c = document.createElement('canvas'); c.width = Math.round(msg.rect.width * msg.dpr); c.height = Math.round(msg.rect.height * msg.dpr);
+          c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+          frame = await new Promise(r => c.toBlob(r, 'image/png'));
+          return { ok: true };
+        }
+        if (msg.type === 'assessFrame') {
+          const res = await fetch('/api/lens/assess', { method: 'POST', body: frame });
+          const data = await res.json();
+          return res.ok ? { result: data } : { error: data.error };
+        }
+        try {
+          const blob = await (await fetch(msg.url)).blob();
+          const res = await fetch('/api/lens/assess', { method: 'POST', body: blob });
+          const data = await res.json();
+          return res.ok ? { result: data } : { error: data.error };
+        } catch (e) { return { error: e.message }; }
+      },
+      onMessage: { addListener() {} },
+    } };
+  }
+</script>
+<script src="/ext/content.js"></script>
+</body>
+</html>

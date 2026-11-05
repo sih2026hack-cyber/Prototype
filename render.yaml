@@ -20,6 +20,16 @@ services:
         sync: false
       - key: MINIMAX_MODEL
         value: MiniMax-Text-01
+      - key: NEBIUS_API_KEY          # comment moderator: Nemotron while credits last, then MiniMax
+        sync: false
+      - key: NEBIUS_CREDIT_USD       # remaining Nebius credit in US$; Nemotron stops at this
+        sync: false
+      - key: MODEL_API_KEY           # Meta Model API for Argus Lens (images and videos)
+        sync: false
+      - key: META_CREDIT_USD         # remaining Meta credit in US$; Lens stops at this
+        sync: false
+      - key: ARGUS_EXTENSION_KEY     # lets the browser extension past the dashboard password
+        sync: false
       - key: HF_TOKEN                # Hugging Face token: RoBERTa sentiment + MiniLM embeddings
         sync: false
       - key: SUPABASE_URL
